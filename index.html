@@ -54,12 +54,30 @@ nav button.on{color:#c8102e}
  </div>
 
  <div class="card">
-  <b>1. Panel &amp; reference photo</b>
+  <b>1. Panel &amp; design (photo or DXF)</b>
   <div class="row">
-   <div><label>Panel width (mm)</label><input id="w" type="number" inputmode="decimal" value="1200"></div>
-   <div><label>Panel height (mm)</label><input id="h" type="number" inputmode="decimal" value="600"></div>
+   <div><label>Panel width (mm)</label><input id="w" type="text" inputmode="decimal" value="1200"></div>
+   <div><label>Panel height (mm)</label><input id="h" type="text" inputmode="decimal" value="600"></div>
   </div>
+
   <label>Reference photo</label><input type="file" id="photo" accept="image/*">
+
+  <label>…or import a DXF drawing (DWG: save as DXF first)</label><input type="file" id="dxfIn">
+  <div id="dxfWrap" hidden>
+   <div id="dxfInfo" class="muted"></div>
+   <canvas id="dxfC" class="pv"></canvas>
+   <div id="dxfCtl">
+    <label>Drawing units</label>
+    <select id="dxfU"><option value="auto">Auto (from file)</option><option value="1">Millimetres</option><option value="10">Centimetres</option><option value="1000">Metres</option><option value="25.4">Inches</option></select>
+    <label>The file contains</label>
+    <select id="dxfMode"><option value="auto">Auto-detect</option><option value="out">Panel outline + cut-outs (or separate parts)</option><option value="cut">Cut-outs only (no outer border)</option></select>
+    <label>Layers to include</label>
+    <div id="dxfLayers"></div>
+   </div>
+   <button class="sec" id="dxfUse">Use this open area for net-weight pricing</button>
+   <label><input type="checkbox" id="incPrev2" checked>Show drawing preview on PDF quote</label>
+  </div>
+
   <div id="pickWrap" hidden>
    <p class="muted">Drag the 4 red handles onto the corners of the panel (1 = top-left, then clockwise). A zoom circle shows while dragging.</p>
    <canvas id="pick"></canvas>
@@ -68,7 +86,7 @@ nav button.on{color:#c8102e}
  </div>
 
  <div class="card" id="anal" hidden>
-  <b>2. Cut-out analysis</b>
+  <b>2. Cut-out analysis (photo)</b>
   <div class="muted">Flattened photo</div><canvas id="flat" class="pv"></canvas>
   <div class="muted">Detected: metal = dark grey, cut-outs = white</div><canvas id="mask" class="pv"></canvas>
   <label>Metal is…</label>
@@ -77,7 +95,7 @@ nav button.on{color:#c8102e}
   <label><input type="checkbox" id="shade">Even out uneven lighting / shadows</label>
   <div id="openOut" style="margin-top:8px"></div>
   <button class="sec" id="btnUse">Use this open area for net-weight pricing</button>
-  <label>Ignore details smaller than (mm²)</label><input id="minA" type="number" inputmode="decimal" value="4">
+  <label>Ignore details smaller than (mm²)</label><input id="minA" type="text" inputmode="decimal" value="4">
   <button class="sec" id="btnTrace">Trace outlines (cut length &amp; pierces)</button>
   <div id="traceOut" class="muted"></div>
   <label><input type="checkbox" id="incPrev" checked>Show cut preview on PDF quote</label>
@@ -87,16 +105,16 @@ nav button.on{color:#c8102e}
   <b>3. Pricing</b>
   <label>Material</label><select id="mat"></select>
   <div class="row">
-   <div><label>Thickness (mm)</label><input id="t" type="number" inputmode="decimal" value="3"></div>
-   <div><label>Quantity</label><input id="q" type="number" inputmode="numeric" value="1"></div>
+   <div><label>Thickness (mm)</label><input id="t" type="text" inputmode="decimal" value="3"></div>
+   <div><label>Quantity</label><input id="q" type="text" inputmode="numeric" value="1"></div>
   </div>
   <label>Weight basis</label>
   <select id="basis"><option value="gross">Gross (full rectangle)</option><option value="net">Net (after cut-outs)</option></select>
-  <div id="openWrap" hidden><label>Open area % (cut away)</label><input id="open" type="number" inputmode="decimal" value="30"></div>
+  <div id="openWrap" hidden><label>Open area % (cut away)</label><input id="open" type="text" inputmode="decimal" value="30"></div>
   <label>Finish</label><select id="fin"></select>
   <label>Design complexity</label><select id="cpx"></select>
   <div class="row">
-   <div><label>Margin % (this client)</label><input id="mg" type="number" inputmode="decimal" value="20"></div>
+   <div><label>Margin % (this client)</label><input id="mg" type="text" inputmode="decimal" value="20"></div>
    <div><label>Add VAT?</label><select id="vat"><option value="1">Yes</option><option value="0">No</option></select></div>
   </div>
  </div>
@@ -124,11 +142,11 @@ nav button.on{color:#c8102e}
  <div class="card"><b>Finishes</b><div class="muted">name · cost factor (1.25 = +25%)</div><div id="sFin"></div><button class="sec" onclick="addRow('finishes')">+ Add</button></div>
  <div class="card"><b>Complexity</b><div class="muted">name · cost factor</div><div id="sCpx"></div><button class="sec" onclick="addRow('complexity')">+ Add</button></div>
  <div class="card"><b>Pricing rules</b>
-  <label>VAT %</label><input data-k="vat" type="number" inputmode="decimal">
-  <label>Minimum charge (R, before VAT)</label><input data-k="min" type="number" inputmode="decimal">
-  <label>Cut rate (R per metre of cut, 0 = off)</label><input data-k="cutRate" type="number" inputmode="decimal">
-  <label>Pierce cost (R per pierce, 0 = off)</label><input data-k="pierce" type="number" inputmode="decimal">
-  <div class="muted">Cut rate / pierce cost use the traced outline. Don't double-charge with the complexity factor.</div>
+  <label>VAT %</label><input data-k="vat" type="text" inputmode="decimal">
+  <label>Minimum charge (R, before VAT)</label><input data-k="min" type="text" inputmode="decimal">
+  <label>Cut rate (R per metre of cut, 0 = off)</label><input data-k="cutRate" type="text" inputmode="decimal">
+  <label>Pierce cost (R per pierce, 0 = off)</label><input data-k="pierce" type="text" inputmode="decimal">
+  <div class="muted">Cut rate / pierce cost use the traced outline or DXF. Don't double-charge with the complexity factor.</div>
  </div>
  <div class="card"><b>Business &amp; quote</b>
   <label>Business name</label><input data-k="biz">
@@ -137,9 +155,9 @@ nav button.on{color:#c8102e}
   <label>Banking details</label><textarea data-k="bank" rows="3"></textarea>
   <label>Terms &amp; notes</label><textarea data-k="terms" rows="3"></textarea>
   <div class="row">
-   <div><label>Valid for (days)</label><input data-k="validity" type="number" inputmode="numeric"></div>
+   <div><label>Valid for (days)</label><input data-k="validity" type="text" inputmode="numeric"></div>
    <div><label>Number prefix</label><input data-k="prefix"></div>
-   <div><label>Next number</label><input data-k="next" type="number" inputmode="numeric"></div>
+   <div><label>Next number</label><input data-k="next" type="text" inputmode="numeric"></div>
   </div>
   <label>Logo</label><input type="file" id="logoIn" accept="image/*">
   <img id="logoPrev" style="max-width:200px;margin-top:6px" hidden>
@@ -150,6 +168,7 @@ nav button.on{color:#c8102e}
   <button class="sec" id="bExpAll" style="width:100%">Backup everything (settings, clients, quotes)</button>
   <button class="sec" id="bImpAll" style="width:100%">Restore backup</button>
   <input type="file" id="impFile" accept=".json,application/json" hidden>
+  <div class="muted">App version 3 (decimal fix + DXF import)</div>
  </div>
 </section>
 </main>
@@ -165,6 +184,10 @@ nav button.on{color:#c8102e}
 const $=id=>document.getElementById(id);
 const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const R=n=>"R "+n.toLocaleString('en-ZA',{minimumFractionDigits:2,maximumFractionDigits:2});
+// number parser: accepts 1.6 and 1,6
+const N=v=>{const x=parseFloat(String(v==null?'':v).replace(/\s/g,'').replace(',','.'));return isFinite(x)?x:0};
+const NUMK=['vat','min','cutRate','pierce','validity','next'];
+const r1=v=>String(Math.round(v*10)/10);
 const loadImg=src=>new Promise((res,rej)=>{const i=new Image();i.onload=()=>res(i);i.onerror=rej;i.src=src});
 const DEF={
  materials:[{n:"Mild steel",d:7850,r:30},{n:"Stainless steel",d:7900,r:90},{n:"Aluminium",d:2700,r:80}],
@@ -201,7 +224,7 @@ const safeName=s=>s.replace(/[^\w\- ]/g,'').trim()||'quote';
 /* ================= settings UI ================= */
 function fill(sel,arr){let v=+sel.value||0;if(v>=arr.length)v=0;sel.innerHTML=arr.map((x,i)=>`<option value="${i}">${esc(x.n)}</option>`).join('');sel.value=v}
 function fillAll(){fill($('mat'),S.materials);fill($('fin'),S.finishes);fill($('cpx'),S.complexity)}
-function rows(k,cols){return S[k].map((m,i)=>`<div class="srow">${cols.map(c=>`<input ${c==='n'?'style="flex:2"':'type="number" step="any" inputmode="decimal"'} value="${esc(m[c])}" onchange="eRow('${k}',${i},'${c}',this.value)">`).join('')}<button class="x" onclick="delRow('${k}',${i})">✕</button></div>`).join('')}
+function rows(k,cols){return S[k].map((m,i)=>`<div class="srow">${cols.map(c=>`<input ${c==='n'?'style="flex:2"':'inputmode="decimal"'} value="${esc(m[c])}" onchange="eRow('${k}',${i},'${c}',this.value)">`).join('')}<button class="x" onclick="delRow('${k}',${i})">✕</button></div>`).join('')}
 function renderSettings(){
  $('sMat').innerHTML=rows('materials',['n','d','r']);
  $('sFin').innerHTML=rows('finishes',['n','f']);
@@ -209,11 +232,11 @@ function renderSettings(){
  document.querySelectorAll('[data-k]').forEach(el=>el.value=S[el.dataset.k]);
  $('logoPrev').hidden=!S.logo;if(S.logo)$('logoPrev').src=S.logo;
 }
-function eRow(k,i,f,v){S[k][i][f]=f==='n'?v:+v;save();fillAll();calc()}
+function eRow(k,i,f,v){S[k][i][f]=f==='n'?v:N(v);save();fillAll();calc()}
 function delRow(k,i){if(S[k].length>1){S[k].splice(i,1);save();renderSettings();fillAll();calc()}}
 function addRow(k){S[k].push(k==='materials'?{n:"New",d:7850,r:30}:{n:"New",f:1});save();renderSettings();fillAll()}
 $('v-set').addEventListener('change',e=>{const k=e.target.dataset&&e.target.dataset.k;if(!k)return;
- S[k]=e.target.type==='number'?+e.target.value:e.target.value;save();calc()});
+ S[k]=NUMK.includes(k)?N(e.target.value):e.target.value;save();calc()});
 $('logoIn').onchange=async e=>{const f=e.target.files[0];if(!f)return;
  const im=await loadImg(URL.createObjectURL(f));const s=Math.min(1,500/im.width,250/im.height);
  const c=document.createElement('canvas');c.width=im.width*s;c.height=im.height*s;c.getContext('2d').drawImage(im,0,0,c.width,c.height);
@@ -237,12 +260,12 @@ function tab(n){['quote','hist','set'].forEach(k=>{$('v-'+k).hidden=k!==n;$('t-'
  if(n==='hist')renderHist();if(n==='set')renderSettings();scrollTo(0,0)}
 
 /* ================= pricing ================= */
-let loops=null,cutLen=0,D={},openPct=0;
+let loops=null,cutLen=0,D={},openPct=0,srcMode='photo';
 function calc(){
  const m=S.materials[$('mat').value]||S.materials[0],fi=S.finishes[$('fin').value]||S.finishes[0],cx=S.complexity[$('cpx').value]||S.complexity[0];
- const t=+$('t').value||0,q=Math.max(1,+$('q').value||1),w=+$('w').value||0,h=+$('h').value||0,mg=+$('mg').value||0;
+ const t=N($('t').value),q=Math.max(1,Math.round(N($('q').value))||1),w=N($('w').value),h=N($('h').value),mg=N($('mg').value);
  const net=$('basis').value==='net';$('openWrap').hidden=!net;
- let area=(w/1000)*(h/1000);if(net)area*=1-(+$('open').value||0)/100;
+ let area=(w/1000)*(h/1000);if(net)area*=1-N($('open').value)/100;
  const kg=area*(t/1000)*m.d,tot=kg*q,mc=tot*m.r,fc=mc*fi.f,cc=fc*cx.f;
  const np=loops?loops.length:0,cutC=((loops?cutLen/1000:0)*S.cutRate+np*S.pierce)*q;
  const base=cc+cutC,mgn=base*(1+mg/100),sub=Math.max(mgn,S.min),vatOn=$('vat').value==='1',vat=vatOn?sub*S.vat/100:0,total=sub+vat;
@@ -259,7 +282,7 @@ function calc(){
  <tr><td>Subtotal</td><td>${R(sub)}</td></tr>
  <tr><td>VAT ${vatOn?S.vat+'%':''}</td><td>${R(vat)}</td></tr></table>
  <div style="margin-top:8px">Total</div><div class="total">${R(total)}</div>
- <div class="muted">Per panel: ${R(total/q)}${loops?` · traced: ${np} paths, ≈${(cutLen/1000).toFixed(2)} m cut per panel`:''}</div>`;
+ <div class="muted">Per panel: ${R(total/q)}${loops?` · ${srcMode==='dxf'?'DXF':'traced'}: ${np} paths, ≈${(cutLen/1000).toFixed(2)} m cut per panel`:''}</div>`;
  return D;
 }
 document.querySelectorAll('#v-quote input,#v-quote select').forEach(el=>el.addEventListener('input',calc));
@@ -270,12 +293,13 @@ let corners=null,drag=-1,photoURL='',gray=null,base=null,metal=null,fw=0,fh=0,fd
 $('photo').onchange=async e=>{const f=e.target.files[0];if(!f)return;
  const u=URL.createObjectURL(f);try{setPhoto(await loadImg(u))}finally{URL.revokeObjectURL(u)}};
 function setPhoto(im,url){
+ srcMode='photo';dxfRaw=null;dxfPaths=null;$('dxfWrap').hidden=true;
  const sc=Math.min(1,1400/Math.max(im.width,im.height)),w=Math.round(im.width*sc),h=Math.round(im.height*sc);
  srcC.width=pickC.width=w;srcC.height=pickC.height=h;srcC.getContext('2d').drawImage(im,0,0,w,h);
  photoURL=url||srcC.toDataURL('image/jpeg',.8);
  corners=[[.12,.12],[.88,.12],[.88,.88],[.12,.88]].map(p=>[p[0]*w,p[1]*h]);
- gray=base=metal=null;loops=null;$('anal').hidden=true;
- $('pickWrap').hidden=false;redrawPick();
+ gray=base=metal=null;loops=null;cutLen=0;$('anal').hidden=true;
+ $('pickWrap').hidden=false;redrawPick();calc();
 }
 function redrawPick(){
  const c=pickC,x=c.getContext('2d'),k=c.width/(c.getBoundingClientRect().width||c.width);
@@ -301,7 +325,7 @@ pickC.addEventListener('pointermove',e=>{if(drag<0)return;e.preventDefault();con
 ['pointerup','pointercancel'].forEach(ev=>pickC.addEventListener(ev,()=>{drag=-1;redrawPick()}));
 
 /* ================= homography + flatten ================= */
-function homography(dst,src){ // maps dst -> src
+function homography(dst,src){
  const A=[];
  for(let i=0;i<4;i++){const[x,y]=dst[i],[u,v]=src[i];
   A.push([x,y,1,0,0,0,-u*x,-u*y,u]);A.push([0,0,0,x,y,1,-v*x,-v*y,v])}
@@ -312,7 +336,7 @@ function homography(dst,src){ // maps dst -> src
 }
 function doFlatten(keep){
  if(!corners)return;
- const Wm=+$('w').value,Hm=+$('h').value;
+ const Wm=N($('w').value),Hm=N($('h').value);
  if(!(Wm>0&&Hm>0)){alert('Enter the panel width and height first.');return}
  const sc=900/Math.max(Wm,Hm),ow=Math.max(20,Math.round(Wm*sc)),oh=Math.max(20,Math.round(Hm*sc));
  const Hh=homography([[0,0],[ow,0],[ow,oh],[0,oh]],corners);
@@ -345,7 +369,7 @@ function prep(keep){
  const sh=$('shade').checked,RR=Math.round(Math.max(w,h)/6);
  base=new Uint8ClampedArray(n);
  for(let y=0;y<h;y++)for(let x=0;x<w;x++){let v=bx(x,y,1);if(sh)v=v-bx(x,y,RR)+gm;base[y*w+x]=v}
- if(!keep){ // Otsu
+ if(!keep){
   const hist=new Array(256).fill(0);for(let i=0;i<n;i++)hist[base[i]]++;
   let sum=0;for(let t=0;t<256;t++)sum+=t*hist[t];
   let sB=0,wB=0,best=0,thr=128;
@@ -397,7 +421,7 @@ function trace(){
   const t=TAB[cs];if(!t)continue;
   for(let i=0;i<t.length;i+=2)segs.set(ek(x,y,t[i]),ek(x,y,t[i+1]));
  }
- const mx=fdims.w/w,my=fdims.h/h,minPx=(+$('minA').value||0)/(mx*my),out=[];let total=0;
+ const mx=fdims.w/w,my=fdims.h/h,minPx=N($('minA').value)/(mx*my),out=[];let total=0;
  for(const s0 of Array.from(segs.keys())){
   if(!segs.has(s0))continue;
   const pts=[];let k=s0;
@@ -415,17 +439,205 @@ function trace(){
  calc();return true;
 }
 $('btnTrace').onclick=()=>{$('traceOut').textContent='Tracing…';setTimeout(trace,30)};
-const ensure=()=>{if(!loops&&!trace()){alert('Add a photo, set the corners and tap "Flatten photo & measure" first.');return false}return true};
+const ensure=()=>{if(!loops&&!trace()){alert('Add a photo (and flatten it) or import a DXF first.');return false}return true};
 
-/* ================= SVG / DXF ================= */
+/* ================= DXF import ================= */
+let dxfRaw=null,dxfPaths=null,dxfName='',dxfLayerOn={},dxfNames=[];
+const UNITS={1:25.4,2:304.8,4:1,5:10,6:1000,10:914.4,13:0.001,14:100};
+const mul=(m,n)=>[m[0]*n[0]+m[2]*n[1],m[1]*n[0]+m[3]*n[1],m[0]*n[2]+m[2]*n[3],m[1]*n[2]+m[3]*n[3],m[0]*n[4]+m[2]*n[5]+m[4],m[1]*n[4]+m[3]*n[5]+m[5]];
+
+function parseDXF(txt){
+ const L=txt.split(/\r?\n/),P=[];
+ for(let i=0;i+1<L.length;i+=2)P.push([parseInt(L[i],10),L[i+1].trim()]);
+ let units=0,sec='',blocks={},ents=[],cur=null,blk=null;
+ for(let i=0;i<P.length;i++){
+  const[c,v]=P[i];
+  if(c===9&&v==='$INSUNITS'&&P[i+1])units=+P[i+1][1];
+  if(c===0){
+   if(v==='SECTION'){sec=P[i+1]?P[i+1][1]:'';cur=null;continue}
+   if(v==='ENDSEC'){sec='';cur=null;blk=null;continue}
+   if(sec==='BLOCKS'&&v==='BLOCK'){blk={name:'',ents:[],bx:0,by:0};cur=null;continue}
+   if(sec==='BLOCKS'&&v==='ENDBLK'){if(blk)blocks[blk.name]={ents:blk.ents,bx:blk.bx,by:blk.by};blk=null;cur=null;continue}
+   if(sec==='ENTITIES'||(sec==='BLOCKS'&&blk)){cur={t:v,g:[]};(blk?blk.ents:ents).push(cur)}else cur=null;
+   continue;
+  }
+  if(sec==='BLOCKS'&&blk&&!cur){if(c===2)blk.name=v;else if(c===10)blk.bx=parseFloat(v)||0;else if(c===20)blk.by=parseFloat(v)||0}
+  if(cur)cur.g.push([c,v]);
+ }
+ return{units,ents,blocks};
+}
+function deBoor(cp,kn,p,w,Nn){
+ const n=cp.length,out=[],t0=kn[p],t1=kn[n];
+ for(let s=0;s<=Nn;s++){
+  const x=t0+(t1-t0)*s/Nn;let k=p;while(k<n-1&&x>=kn[k+1])k++;
+  const d=[];for(let j=0;j<=p;j++){const c=cp[j+k-p],ww=w?w[j+k-p]:1;d.push([c[0]*ww,c[1]*ww,ww])}
+  for(let r=1;r<=p;r++)for(let j=p;j>=r;j--){
+   const den=kn[j+1+k-r]-kn[j+k-p],a=den?(x-kn[j+k-p])/den:0;
+   d[j]=[(1-a)*d[j-1][0]+a*d[j][0],(1-a)*d[j-1][1]+a*d[j][1],(1-a)*d[j-1][2]+a*d[j][2]];
+  }
+  out.push([d[p][0]/d[p][2],d[p][1]/d[p][2]]);
+ }
+ return out;
+}
+function dxfGeom(Dx,sc){
+ const tol=0.02/sc,out=[],PI2=Math.PI*2;
+ const g1=(e,c)=>{for(const g of e.g)if(g[0]===c)return g[1]};
+ const gn=(e,c,d)=>{const v=parseFloat(g1(e,c));return isNaN(v)?d:v};
+ const all=(e,c)=>e.g.filter(g=>g[0]===c).map(g=>parseFloat(g[1]));
+ const nseg=(r,sw,min)=>Math.max(min,Math.ceil(Math.abs(sw)/Math.max(0.03,2*Math.acos(Math.max(0,1-tol/Math.max(r,tol))))));
+ const arc=(cx,cy,r,a0,sw,min)=>{const n=nseg(r,sw,min),o=[];for(let i=0;i<=n;i++){const a=a0+sw*i/n;o.push([cx+r*Math.cos(a),cy+r*Math.sin(a)])}return o};
+ const bulge=(p,q,b)=>{const dx=q[0]-p[0],dy=q[1]-p[1],c=Math.hypot(dx,dy);if(!c)return[];
+  const th=4*Math.atan(b),off=(c/2)/Math.tan(th/2),cx=(p[0]+q[0])/2-dy/c*off,cy=(p[1]+q[1])/2+dx/c*off,r=Math.hypot(p[0]-cx,p[1]-cy);
+  return arc(cx,cy,r,Math.atan2(p[1]-cy,p[0]-cx),th,2).slice(1,-1)};
+ const polyB=(v,closed)=>{const n=v.length,pts=[[v[0].x,v[0].y]],segs=closed?n:n-1;
+  for(let i=0;i<segs;i++){const p=v[i],q=v[(i+1)%n];
+   if(p.b)for(const m of bulge([p.x,p.y],[q.x,q.y],p.b))pts.push(m);
+   if(!(closed&&i===n-1))pts.push([q.x,q.y])}
+  return pts};
+ function walk(ents,M,depth,inh){
+  for(let i=0;i<ents.length;i++){
+   const e=ents[i],t=e.t;
+   if(gn(e,67,0)===1)continue;
+   let lay=g1(e,8)||'0';if(lay==='0'&&inh)lay=inh;
+   const flip=(t==='ARC'||t==='CIRCLE'||t==='LWPOLYLINE'||t==='POLYLINE')&&gn(e,230,1)<0;
+   const push=(pts,closed)=>{if(pts.length<2)return;
+    out.push({pts:pts.map(p=>{const x=flip?-p[0]:p[0],y=p[1];return[M[0]*x+M[2]*y+M[4],M[1]*x+M[3]*y+M[5]]}),closed,layer:lay})};
+   if(t==='LINE')push([[gn(e,10,0),gn(e,20,0)],[gn(e,11,0),gn(e,21,0)]],false);
+   else if(t==='ARC'){let a0=gn(e,50,0)*Math.PI/180,a1=gn(e,51,0)*Math.PI/180;if(a1<=a0)a1+=PI2;
+    push(arc(gn(e,10,0),gn(e,20,0),gn(e,40,0),a0,a1-a0,2),false)}
+   else if(t==='CIRCLE'){push(arc(gn(e,10,0),gn(e,20,0),gn(e,40,0),0,PI2,16).slice(0,-1),true)}
+   else if(t==='LWPOLYLINE'){const v=[];let cur=null;
+    for(const[c,val]of e.g){if(c===10){cur={x:parseFloat(val),y:0,b:0};v.push(cur)}else if(c===20&&cur)cur.y=parseFloat(val);else if(c===42&&cur)cur.b=parseFloat(val)||0}
+    if(v.length>1){const cl=(gn(e,70,0)&1)===1;push(polyB(v,cl),cl)}}
+   else if(t==='POLYLINE'){const fl=gn(e,70,0),v=[];let j=i+1;
+    for(;j<ents.length&&ents[j].t==='VERTEX';j++){const ve=ents[j];if(gn(ve,70,0)&16)continue;v.push({x:gn(ve,10,0),y:gn(ve,20,0),b:gn(ve,42,0)})}
+    i=(ents[j]&&ents[j].t==='SEQEND')?j:j-1;
+    if(!(fl&(16|64))&&v.length>1){const cl=(fl&1)===1;push(polyB(v,cl),cl)}}
+   else if(t==='ELLIPSE'){const cx=gn(e,10,0),cy=gn(e,20,0),mx=gn(e,11,0),my=gn(e,21,0),ra=gn(e,40,1),s0=gn(e,41,0);let s1=gn(e,42,PI2);if(s1<=s0)s1+=PI2;
+    const full=Math.abs(s1-s0-PI2)<1e-6,n=nseg(Math.hypot(mx,my),s1-s0,24),o=[];
+    for(let k=0;k<=n;k++){const a=s0+(s1-s0)*k/n,ca=Math.cos(a),sa=Math.sin(a);o.push([cx+mx*ca-ra*my*sa,cy+my*ca+ra*mx*sa])}
+    push(full?o.slice(0,-1):o,full)}
+   else if(t==='SPLINE'){const deg=gn(e,71,3),kn=all(e,40),wt=all(e,41),xs=all(e,10),ys=all(e,20),fx=all(e,11),fy=all(e,21);let pts=[];
+    if(xs.length>deg&&kn.length===xs.length+deg+1){const cp=xs.map((x,k)=>[x,ys[k]]);pts=deBoor(cp,kn,deg,wt.length===cp.length?wt:null,Math.max(24,cp.length*16))}
+    else if(fx.length>1)pts=fx.map((x,k)=>[x,fy[k]]);
+    else if(xs.length>1)pts=xs.map((x,k)=>[x,ys[k]]);
+    push(pts,(gn(e,70,0)&1)===1)}
+   else if(t==='INSERT'){
+    if(depth>8)continue;const b=Dx.blocks[g1(e,2)];if(!b)continue;
+    const ix=gn(e,10,0),iy=gn(e,20,0),sx=gn(e,41,1),sy=gn(e,42,1),rot=gn(e,50,0)*Math.PI/180,cols=Math.max(1,gn(e,70,1)),rws=Math.max(1,gn(e,71,1)),dc=gn(e,44,0),dr=gn(e,45,0),co=Math.cos(rot),si=Math.sin(rot);
+    for(let r=0;r<rws;r++)for(let c=0;c<cols;c++){
+     const ox=c*dc,oy=r*dr,T=[1,0,0,1,ix+co*ox-si*oy,iy+si*ox+co*oy],RS=[co*sx,si*sx,-si*sy,co*sy,0,0];
+     walk(b.ents,mul(M,mul(T,mul(RS,[1,0,0,1,-b.bx,-b.by]))),depth+1,lay);
+    }}
+  }
+ }
+ walk(Dx.ents,[1,0,0,1,0,0],0,'');
+ return out;
+}
+function chainPaths(P,tol){
+ const n=P.length,used=new Uint8Array(n),grid=new Map(),out=[];
+ const key=(x,y)=>x+','+y,cell=p=>key(Math.floor(p[0]/tol),Math.floor(p[1]/tol));
+ P.forEach((p,i)=>{[0,1].forEach(end=>{const k=cell(end?p[p.length-1]:p[0]);if(!grid.has(k))grid.set(k,[]);grid.get(k).push([i,end])})});
+ const find=pt=>{const cx=Math.floor(pt[0]/tol),cy=Math.floor(pt[1]/tol);
+  for(let dx=-1;dx<=1;dx++)for(let dy=-1;dy<=1;dy++){const l=grid.get(key(cx+dx,cy+dy));if(!l)continue;
+   for(const[i,end]of l){if(used[i])continue;const q=end?P[i][P[i].length-1]:P[i][0];if(Math.hypot(q[0]-pt[0],q[1]-pt[1])<=tol)return[i,end]}}
+  return null};
+ const extend=pts=>{for(;;){const tail=pts[pts.length-1];
+  if(pts.length>2&&Math.hypot(tail[0]-pts[0][0],tail[1]-pts[0][1])<=tol)break;
+  const f=find(tail);if(!f)break;used[f[0]]=1;
+  const s=f[1]?P[f[0]].slice().reverse():P[f[0]];for(let k=1;k<s.length;k++)pts.push(s[k])}};
+ for(let i=0;i<n;i++){if(used[i])continue;used[i]=1;const pts=P[i].slice();
+  extend(pts);pts.reverse();extend(pts);
+  const closed=pts.length>2&&Math.hypot(pts[0][0]-pts[pts.length-1][0],pts[0][1]-pts[pts.length-1][1])<=tol;
+  if(closed)pts.pop();out.push({pts,closed})}
+ return out;
+}
+const pip=(pt,poly)=>{let ins=false;for(let i=0,j=poly.length-1;i<poly.length;j=i++){const a=poly[i],b=poly[j];
+ if((a[1]>pt[1])!==(b[1]>pt[1])&&pt[0]<(b[0]-a[0])*(pt[1]-a[1])/(b[1]-a[1])+a[0])ins=!ins}return ins};
+const plen=(p,cl)=>{let s=0;for(let i=1;i<p.length;i++)s+=Math.hypot(p[i][0]-p[i-1][0],p[i][1]-p[i-1][1]);if(cl)s+=Math.hypot(p[0][0]-p[p.length-1][0],p[0][1]-p[p.length-1][1]);return s};
+
+function drawLayerList(names){
+ const cnt={};dxfPaths.list.forEach(p=>cnt[p.layer]=(cnt[p.layer]||0)+1);dxfNames=names;
+ $('dxfLayers').innerHTML=names.map((n,i)=>`<label style="margin:4px 0"><input type="checkbox" data-li="${i}" ${dxfLayerOn[n]?'checked':''}>${esc(n)} <span class="muted">(${cnt[n]})</span></label>`).join('');
+}
+$('dxfLayers').addEventListener('change',e=>{const i=e.target.dataset.li;if(i==null)return;dxfLayerOn[dxfNames[i]]=e.target.checked;dxfProcess(false)});
+$('dxfU').addEventListener('change',()=>dxfProcess(false));
+$('dxfMode').addEventListener('change',()=>dxfProcess(false));
+
+function drawDxfPrev(){
+ const c=$('dxfC'),W=fdims.w,H=fdims.h,s=1000/Math.max(W,H,1);
+ c.width=Math.max(20,Math.round(W*s)+20);c.height=Math.max(20,Math.round(H*s)+20);
+ const x=c.getContext('2d');x.fillStyle='#fff';x.fillRect(0,0,c.width,c.height);x.lineWidth=2;x.lineJoin='round';
+ for(const l of loops){x.strokeStyle=l.open?'#d00':'#111';x.beginPath();
+  l.forEach((p,i)=>i?x.lineTo(10+p[0]*s,10+p[1]*s):x.moveTo(10+p[0]*s,10+p[1]*s));if(!l.open)x.closePath();x.stroke()}
+}
+function dxfProcess(first){
+ if(!dxfRaw)return;
+ const u=$('dxfU').value;let sc,note='';
+ if(u==='auto'){sc=UNITS[dxfRaw.units];if(!sc){sc=1;note='<br>Units are not stored in this file, so millimetres were assumed. If the size looks wrong, change "Drawing units".'}}else sc=+u;
+ if(!dxfPaths||dxfPaths.sc!==sc)dxfPaths={sc,list:dxfGeom(dxfRaw,sc)};
+ if(first){const names=[...new Set(dxfPaths.list.map(p=>p.layer))];dxfLayerOn={};names.forEach(n=>dxfLayerOn[n]=!/dim|defpoints|text|note/i.test(n));drawLayerList(names)}
+ const closedL=[],openP=[];
+ for(const p of dxfPaths.list){if(!dxfLayerOn[p.layer])continue;const pts=p.pts.map(q=>[q[0]*sc,q[1]*sc]);(p.closed?closedL:openP).push(pts)}
+ const ch=chainPaths(openP,0.1);
+ ch.forEach(c=>{if(c.closed)closedL.push(c.pts)});
+ let openL=ch.filter(c=>!c.closed&&plen(c.pts,false)>0.05).map(c=>c.pts);
+ const cl=closedL.filter(p=>p.length>2&&plen(p,true)>0.1);
+ const allP=cl.concat(openL);
+ if(!allP.length){loops=null;cutLen=0;openPct=0;$('dxfWrap').hidden=false;$('dxfInfo').innerHTML='Nothing to cut was found on the selected layers.';calc();return}
+ let x0=1e18,y0=1e18,x1=-1e18,y1=-1e18;
+ for(const p of allP)for(const q of p){if(q[0]<x0)x0=q[0];if(q[0]>x1)x1=q[0];if(q[1]<y0)y0=q[1];if(q[1]>y1)y1=q[1]}
+ const W=x1-x0,H=y1-y0;
+ const fix=p=>p.map(q=>[Math.round((q[0]-x0)*100)/100,Math.round((y1-q[1])*100)/100]);
+ const info=cl.map(p=>{const f=fix(p);let a=0,bx0=1e18,by0=1e18,bx1=-1e18,by1=-1e18;
+  for(let i=0;i<f.length;i++){const q=f[i],r=f[(i+1)%f.length];a+=q[0]*r[1]-r[0]*q[1];if(q[0]<bx0)bx0=q[0];if(q[0]>bx1)bx1=q[0];if(q[1]<by0)by0=q[1];if(q[1]>by1)by1=q[1]}
+  return{pts:f,a:Math.abs(a)/2,bb:[bx0,by0,bx1,by1]}});
+ let sum=0,big=null;
+ for(const A of info){if(!big||A.a>big.a)big=A}
+ const sumPar=()=>{let s=0;for(const A of info){let d=0;const pt=A.pts[0];
+  for(const B of info){if(B===A||B.a<=A.a)continue;if(pt[0]<B.bb[0]||pt[0]>B.bb[2]||pt[1]<B.bb[1]||pt[1]>B.bb[3])continue;if(pip(pt,B.pts))d++}
+  s+=(d%2===0?1:-1)*A.a}return s};
+ sum=info.length?sumPar():0;
+ let mode=$('dxfMode').value;
+ if(mode==='auto')mode=(big&&(big.bb[2]-big.bb[0])>=.9*W&&(big.bb[3]-big.bb[1])>=.9*H)?'out':'cut';
+ const bA=Math.max(W*H,1e-6),metalA=mode==='out'?sum:bA-sum;
+ openPct=Math.max(0,Math.min(100,100*(1-metalA/bA)));
+ loops=info.map(A=>A.pts).concat(openL.map(p=>{const f=fix(p);f.open=true;return f}));
+ cutLen=cl.reduce((s,p)=>s+plen(p,true),0)+openL.reduce((s,p)=>s+plen(p,false),0);
+ fdims={w:W,h:H};
+ $('w').value=r1(W);$('h').value=r1(H);
+ $('dxfWrap').hidden=false;
+ $('dxfInfo').innerHTML=dxfSummary(cl.length,openL.length)+`<br>Open area: <b>${openPct.toFixed(1)}%</b> (read as: ${mode==='out'?'outline + cut-outs':'cut-outs only'})${note}`;
+ drawDxfPrev();calc();
+}
+function dxfSummary(nc,no){
+ return `<b>${esc(dxfName)}</b><br>Size: <b>${r1(fdims.w)} × ${r1(fdims.h)} mm</b> (width and height filled in for you)<br>${nc} closed paths${no?`, <span style="color:#c8102e"><b>${no} OPEN</b> (red – gaps in drawing)</span>`:''} · Cut length: <b>${(cutLen/1000).toFixed(2)} m</b> · Pierces: <b>${nc+no}</b>`;
+}
+$('dxfIn').onchange=async e=>{
+ const f=e.target.files[0];if(!f)return;e.target.value='';
+ if(/\.dwg$/i.test(f.name)){alert('DWG files cannot be read in the browser. Open it in AutoCAD / DWG TrueView / a free converter and Save As an ASCII DXF, then import that.');return}
+ let txt;try{txt=await f.text()}catch(err){alert('Could not read that file.');return}
+ if(txt.startsWith('AC10')){alert('That is a DWG file renamed. Please save it as DXF from your CAD program.');return}
+ if(txt.startsWith('AutoCAD Binary DXF')){alert('This is a binary DXF. Please save it as an ASCII DXF (e.g. "AutoCAD 2000 DXF" or "R12 DXF").');return}
+ let Dx;try{Dx=parseDXF(txt)}catch(err){alert('Could not read the DXF.');return}
+ if(!Dx.ents.length){alert('No drawing entities found in that file.');return}
+ srcMode='dxf';dxfRaw=Dx;dxfPaths=null;dxfName=f.name;
+ corners=null;gray=base=metal=null;photoURL='';$('photo').value='';$('pickWrap').hidden=true;$('anal').hidden=true;
+ $('dxfCtl').hidden=false;$('dxfU').value='auto';$('dxfMode').value='auto';
+ $('dxfInfo').textContent='Reading…';$('dxfWrap').hidden=false;
+ setTimeout(()=>{try{dxfProcess(true)}catch(err){alert('Problem reading this DXF: '+err.message)}},30);
+};
+$('dxfUse').onclick=()=>{$('basis').value='net';$('open').value=r1(openPct);calc();$('result').scrollIntoView({behavior:'smooth'})};
+
+/* ================= SVG / DXF export ================= */
 const fname=()=>safeName((curNo||'quote')+' '+($('client').value||''));
 $('btnSVG').onclick=async()=>{if(!ensure())return;
- const d=loops.map(l=>'M'+l.map(p=>p[0]+' '+p[1]).join('L')+'Z').join('');
+ const d=loops.map(l=>'M'+l.map(p=>p[0]+' '+p[1]).join('L')+(l.open?'':'Z')).join('');
  const svg=`<svg xmlns="http://www.w3.org/2000/svg" width="${fdims.w}mm" height="${fdims.h}mm" viewBox="0 0 ${fdims.w} ${fdims.h}"><path d="${d}" fill="none" stroke="#000" stroke-width="0.2"/></svg>`;
  await saveFile(fname()+'.svg',new Blob([svg],{type:'image/svg+xml'}))};
 $('btnDXF').onclick=async()=>{if(!ensure())return;
  let s='0\nSECTION\n2\nENTITIES\n';
- for(const l of loops){s+='0\nPOLYLINE\n8\nCUT\n66\n1\n70\n1\n';
+ for(const l of loops){s+=`0\nPOLYLINE\n8\nCUT\n66\n1\n70\n${l.open?0:1}\n`;
   for(const p of l)s+=`0\nVERTEX\n8\nCUT\n10\n${p[0]}\n20\n${(fdims.h-p[1]).toFixed(2)}\n30\n0\n`;
   s+='0\nSEQEND\n8\nCUT\n'}
  s+='0\nENDSEC\n0\nEOF\n';
@@ -441,6 +653,7 @@ function wrap(x,text,px,py,maxW,lh){
 }
 function fit(x,im,bx,by,bw,bh){const s=Math.min(bw/im.width,bh/im.height),w=im.width*s,h=im.height*s;
  x.drawImage(im,bx+(bw-w)/2,by+(bh-h)/2,w,h);x.strokeStyle='#ccc';x.lineWidth=2;x.strokeRect(bx,by,bw,bh)}
+const prevCan=()=>srcMode==='dxf'?(loops?$('dxfC'):null):(gray?$('mask'):null);
 async function quoteCanvas(q){
  const W=1240,H=1754,M=80,F='Helvetica,Arial,sans-serif',RED='#c8102e',c=document.createElement('canvas');
  c.width=W;c.height=H;const x=c.getContext('2d');x.fillStyle='#fff';x.fillRect(0,0,W,H);x.textBaseline='top';x.textAlign='left';
@@ -460,12 +673,13 @@ async function quoteCanvas(q){
  x.font=`24px ${F}`;x.fillStyle='#444';
  [q.client.phone,q.client.email].filter(Boolean).forEach(l=>{x.fillText(l,M,y);y+=32});
  y+=20;
- const bh=440,showPrev=q.incPrev&&gray,bw=showPrev?(W-2*M-30)/2:W-2*M;
- if(photoURL){try{fit(x,await loadImg(photoURL),M,y,bw,bh)}catch(e){}}
- if(showPrev)fit(x,$('mask'),M+bw+30,y,bw,bh);
- x.fillStyle='#777';x.font=`20px ${F}`;x.fillText('Reference photo',M,y+bh+8);
- if(showPrev)x.fillText('Indicative cut preview (not final artwork)',M+bw+30,y+bh+8);
- y+=bh+50;
+ const bh=440,pc=q.incPrev?prevCan():null,hasPh=!!photoURL,bw=(pc&&hasPh)?(W-2*M-30)/2:W-2*M;let bx=M;
+ if(hasPh){try{fit(x,await loadImg(photoURL),M,y,bw,bh)}catch(e){}bx=M+bw+30}
+ if(pc)fit(x,pc,bx,y,bw,bh);
+ x.fillStyle='#777';x.font=`20px ${F}`;
+ if(hasPh)x.fillText('Reference photo',M,y+bh+8);
+ if(pc)x.fillText(srcMode==='dxf'?'Cut drawing preview':'Indicative cut preview (not final artwork)',bx,y+bh+8);
+ if(hasPh||pc)y+=bh+50;
  const d=q.calc,rowsA=[['Material',d.matN],['Thickness',d.t+' mm'],['Panel size',d.w+' × '+d.h+' mm'],['Quantity',String(d.q)],['Finish',d.finN],['Approx. total weight',d.tot.toFixed(1)+' kg']];
  rowsA.forEach((r,i)=>{if(i%2===0){x.fillStyle='#f4f4f4';x.fillRect(M,y,W-2*M,50)}
   x.fillStyle='#111';x.font=`26px ${F}`;x.fillText(r[0],M+16,y+10);x.textAlign='right';x.fillText(r[1],W-M-16,y+10);x.textAlign='left';y+=50});
@@ -513,10 +727,11 @@ async function saveQuote(asNew){
  if(!curNo){curNo=S.prefix+String(S.next).padStart(4,'0');S.next++;save()}
  const name=$('client').value.trim();
  const q={id:curId,number:curNo,date:Date.now(),client:{name,phone:$('phone').value,email:$('email').value},
-  inputs:{w:d.w,h:d.h,t:d.t,q:d.q,basis:$('basis').value,open:+$('open').value,mg:d.mg,vat:$('vat').value},
-  matN:d.matN,finN:d.finN,cpxN:d.cpxN,calc:d,photo:photoURL,
+  inputs:{w:d.w,h:d.h,t:d.t,q:d.q,basis:$('basis').value,open:N($('open').value),mg:d.mg,vat:$('vat').value},
+  matN:d.matN,finN:d.finN,cpxN:d.cpxN,calc:d,photo:photoURL,src:srcMode,dxfName:dxfName,
   corners:corners?corners.map(c=>[c[0]/srcC.width,c[1]/srcC.height]):null,
-  thr:gray?+$('thr').value:null,md:$('metalDark').value,shade:$('shade').checked,minA:$('minA').value,incPrev:$('incPrev').checked,
+  thr:gray?+$('thr').value:null,md:$('metalDark').value,shade:$('shade').checked,minA:$('minA').value,
+  incPrev:srcMode==='dxf'?$('incPrev2').checked:$('incPrev').checked,
   loops:loops,cutLen:cutLen,fdims:fdims,openPct:openPct};
  await dbPut('quotes',q);
  if(name){const c={key:name.toLowerCase(),name,phone:q.client.phone,email:q.client.email,margin:d.mg};await dbPut('clients',c);
@@ -540,8 +755,9 @@ async function delQ(id){if(confirm('Delete this quote?')){await dbDel('quotes',i
 async function openQ(id){await loadQuote(await dbGet('quotes',id));tab('quote')}
 function selByName(sel,arr,n){const i=arr.findIndex(a=>a.n===n);sel.value=i<0?0:i}
 function resetQuote(){
- curId=null;curNo=null;['client','phone','email'].forEach(i=>$(i).value='');$('photo').value='';
+ curId=null;curNo=null;['client','phone','email'].forEach(i=>$(i).value='');$('photo').value='';$('dxfIn').value='';
  corners=null;gray=base=metal=null;loops=null;cutLen=0;photoURL='';$('pickWrap').hidden=true;$('anal').hidden=true;
+ srcMode='photo';dxfRaw=null;dxfPaths=null;dxfName='';$('dxfWrap').hidden=true;$('dxfCtl').hidden=false;
  $('qno').textContent='New quote';$('basis').value='gross';$('thr').value=128;$('shade').checked=false;calc();
 }
 async function loadQuote(q){
@@ -554,7 +770,12 @@ async function loadQuote(q){
   if(q.corners){corners=q.corners.map(c=>[c[0]*srcC.width,c[1]*srcC.height]);redrawPick();
    if(q.thr!=null){$('shade').checked=q.shade;$('metalDark').value=q.md;$('minA').value=q.minA;$('incPrev').checked=q.incPrev;
     doFlatten(true);$('thr').value=q.thr;updateMask()}}}
- if(q.loops){loops=q.loops;cutLen=q.cutLen;fdims=q.fdims||fdims;$('traceOut').textContent=`${loops.length} cut paths · ≈${(cutLen/1000).toFixed(2)} m of cut per panel`}
+ if(q.src==='dxf'&&q.loops){
+  srcMode='dxf';loops=q.loops;cutLen=q.cutLen;fdims=q.fdims;openPct=q.openPct||0;dxfName=q.dxfName||'';
+  $('incPrev2').checked=q.incPrev;$('dxfCtl').hidden=true;$('dxfWrap').hidden=false;
+  $('dxfInfo').innerHTML=dxfSummary(loops.length,0)+`<br>Open area: <b>${openPct.toFixed(1)}%</b><br>Saved quote – import the DXF again to change layers or units.`;
+  drawDxfPrev();
+ }else if(q.loops){loops=q.loops;cutLen=q.cutLen;fdims=q.fdims||fdims;$('traceOut').textContent=`${loops.length} cut paths · ≈${(cutLen/1000).toFixed(2)} m of cut per panel`}
  calc();
 }
 $('newBtn').onclick=()=>{resetQuote();tab('quote')};
