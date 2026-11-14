@@ -16,6 +16,7 @@ body{font-family:-apple-system,Helvetica,Arial,sans-serif;margin:0;background:#f
 header{background:#c8102e;color:#fff;padding:14px 16px;padding-top:max(14px,env(safe-area-inset-top));font-weight:700;font-size:18px;display:flex;justify-content:space-between;align-items:center;position:sticky;top:0;z-index:5}
 header button{background:#fff;color:#c8102e;border:0;border-radius:8px;padding:6px 12px;font-weight:600}
 main{padding:12px;max-width:640px;margin:auto}
+a{color:#c8102e}
 .card{background:#fff;border-radius:12px;padding:12px;margin-bottom:12px}
 label{display:block;font-size:13px;color:#555;margin:8px 0 3px}
 input,select,textarea{width:100%;padding:11px;font-size:16px;border:1px solid #ccc;border-radius:8px;background:#fff;font-family:inherit}
@@ -36,16 +37,24 @@ canvas{display:block;width:100%;height:auto;border-radius:8px;margin-top:6px}
 .pv{border:1px solid #ddd}
 .srow{display:flex;gap:6px;margin-bottom:6px}
 .srow input{flex:1;min-width:0}
+.srow select{flex:1;min-width:0}
 .sheetbox{background:#f7f7fa;border-radius:8px;padding:8px;margin-top:8px}
 .sheetbox td,.sheetbox th{padding:4px 3px}
 .sheetbox td:last-child,.sheetbox th:last-child{text-align:right}
 .warn{color:#c8102e;font-weight:600}
+.bk{background:#fff3cd;border:1px solid #e0c36a;display:flex;gap:8px;align-items:center;justify-content:space-between;font-size:14px}
+.wbox{background:#fff0f0;border:1px solid #f0b4b4;color:#8a1020;font-size:14px}
+.wbox ul{margin:6px 0 0;padding-left:18px}
+select.st{width:auto;padding:5px 8px;font-size:14px;font-weight:600;margin-top:6px}
+.exrow{margin-bottom:10px}
 nav{position:fixed;bottom:0;left:0;right:0;background:#fff;border-top:1px solid #ddd;display:flex;padding-bottom:env(safe-area-inset-bottom);z-index:6}
 nav button{flex:1;padding:14px 0;border:0;background:none;font-size:15px;color:#777;font-weight:600}
 nav button.on{color:#c8102e}
 </style></head><body>
 <header><span id="title">Laser Quote</span><button id="newBtn">+ New</button></header>
 <main>
+
+<div id="bk" class="card bk" hidden><span id="bkT"></span><button class="sm" id="bkBtn">Back up now</button></div>
 
 <!-- ============ QUOTE ============ -->
 <section id="v-quote">
@@ -58,6 +67,8 @@ nav button.on{color:#c8102e}
    <div><label>Phone</label><input id="phone" type="tel"></div>
    <div><label>Email</label><input id="email" type="email"></div>
   </div>
+  <label>Client address (optional)</label><textarea id="addr" rows="2"></textarea>
+  <label>Client VAT number (optional)</label><input id="cvat">
  </div>
 
  <div class="card">
@@ -127,6 +138,10 @@ nav button.on{color:#c8102e}
    <div><label>Sheet size</label><select id="sheet"></select></div>
    <div><label>Gap between panels (mm)</label><input id="gap" type="text" inputmode="decimal" value="5"></div>
   </div>
+  <div class="row">
+   <div><label>Sheet edge margin (mm)</label><input id="edge" type="text" inputmode="decimal" value="10"></div>
+   <div><label>Round calculated price up to</label><select id="rnd"><option value="0">No rounding</option><option value="10">R10</option><option value="50">R50</option><option value="100">R100</option></select></div>
+  </div>
   <div id="sheetInfo" class="sheetbox"></div>
   <label>Finish</label><select id="fin"></select>
   <label>Design complexity</label><select id="cpx"></select>
@@ -137,6 +152,42 @@ nav button.on{color:#c8102e}
  </div>
 
  <div class="card" id="result"></div>
+
+ <div class="card" id="pricecard">
+  <b>4. Price to charge</b>
+  <div class="muted" id="calcNote"></div>
+  <label>Price to charge (before VAT) – type your own price</label>
+  <input id="price" type="text" inputmode="decimal">
+  <button class="sec" id="btnReset">Reset to calculated price</button>
+  <div class="muted" id="priceNote"></div>
+ </div>
+
+ <div class="card">
+  <b>5. Extra lines (optional)</b>
+  <div class="muted">Delivery, installation, design fee or a discount. They are added to the quote before VAT.</div>
+  <div id="exList"></div>
+  <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">
+   <button class="sm" onclick="exAdd('Delivery')">+ Delivery</button>
+   <button class="sm" onclick="exAdd('Installation')">+ Installation</button>
+   <button class="sm" onclick="exAdd('Design fee')">+ Design fee</button>
+   <button class="sm" onclick="exAdd('Discount',true)">+ Discount</button>
+   <button class="sm" onclick="exAdd('')">+ Other</button>
+  </div>
+ </div>
+
+ <div class="card" id="totals"></div>
+
+ <div class="card">
+  <b>6. Quote details (shown on the PDF)</b>
+  <label>Job description</label><textarea id="desc" rows="2" placeholder="e.g. Lounge feature wall, 4 panels"></textarea>
+  <div class="row">
+   <div><label>Estimated lead time</label><input id="lead" placeholder="e.g. 7–10 working days"></div>
+   <div><label>Deposit % (0 = none)</label><input id="dep" type="text" inputmode="decimal"></div>
+  </div>
+  <label>Quote status</label><select id="status"></select>
+ </div>
+
+ <div class="card wbox" id="warns" hidden></div>
 
  <button class="main" id="btnPDF">Create PDF quote (save &amp; share)</button>
  <button class="sec" id="btnSave" style="width:100%">Save quote</button>
@@ -149,7 +200,9 @@ nav button.on{color:#c8102e}
 
 <!-- ============ HISTORY ============ -->
 <section id="v-hist" hidden>
- <div class="card"><input id="hq" placeholder="Search client or quote number"></div>
+ <div class="card"><input id="hq" placeholder="Search client, phone or quote number">
+  <label>Show</label><select id="hs"></select>
+  <div id="hsum" class="muted"></div></div>
  <div id="hlist"></div>
 </section>
 
@@ -170,6 +223,10 @@ nav button.on{color:#c8102e}
   <label>Cut rate (R per metre of cut, 0 = off)</label><input data-k="cutRate" type="text" inputmode="decimal">
   <label>Pierce cost (R per pierce, 0 = off)</label><input data-k="pierce" type="text" inputmode="decimal">
   <div class="muted">Cut rate / pierce cost use the traced outline or DXF. Don't double-charge with the complexity factor.</div>
+  <label>Default: round calculated price up to</label>
+  <select data-k="round"><option value="0">No rounding</option><option value="10">R10</option><option value="50">R50</option><option value="100">R100</option></select>
+  <label>Default deposit % on PDF (0 = none)</label><input data-k="dep" type="text" inputmode="decimal">
+  <label>Default lead time text</label><input data-k="lead" placeholder="e.g. 7–10 working days">
  </div>
  <div class="card"><b>Business &amp; quote</b>
   <label>Business name</label><input data-k="biz">
@@ -186,12 +243,13 @@ nav button.on{color:#c8102e}
   <img id="logoPrev" style="max-width:200px;margin-top:6px" hidden>
  </div>
  <div class="card"><b>Data</b>
+  <div class="muted" id="bkSet"></div>
   <button class="sec" id="bExpSet" style="width:100%">Export settings (share rates with colleagues)</button>
   <button class="sec" id="bImpSet" style="width:100%">Import settings</button>
   <button class="sec" id="bExpAll" style="width:100%">Backup everything (settings, clients, quotes)</button>
   <button class="sec" id="bImpAll" style="width:100%">Restore backup</button>
   <input type="file" id="impFile" accept=".json,application/json" hidden>
-  <div class="muted">App version 4 (sheet sizes &amp; usage)</div>
+  <div class="muted">App version 5 (your price, extras, status, profit, warnings)</div>
  </div>
 </section>
 </main>
@@ -209,21 +267,24 @@ const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;',
 const R=n=>"R "+n.toLocaleString('en-ZA',{minimumFractionDigits:2,maximumFractionDigits:2});
 // number parser: accepts 1.6 and 1,6
 const N=v=>{const x=parseFloat(String(v==null?'':v).replace(/\s/g,'').replace(',','.'));return isFinite(x)?x:0};
-const NUMK=['vat','min','cutRate','pierce','validity','next','gap','edge'];
+const NUMK=['vat','min','cutRate','pierce','validity','next','gap','edge','round','dep'];
 const r1=v=>String(Math.round(v*10)/10);
 const loadImg=src=>new Promise((res,rej)=>{const i=new Image();i.onload=()=>res(i);i.onerror=rej;i.src=src});
+const STAT=['Draft','Sent','Accepted','Rejected','Invoiced'],SCOL={Draft:'#777',Sent:'#0a58ca',Accepted:'#1a7f37',Rejected:'#c8102e',Invoiced:'#6f42c1'};
 const DEF={
  materials:[{n:"Mild steel",d:7850,r:30},{n:"Stainless steel",d:7900,r:90},{n:"Aluminium",d:2700,r:80}],
  sheets:[{n:"2450 × 1225",w:2450,h:1225},{n:"3000 × 1500",w:3000,h:1500},{n:"1550 × 1225",w:1550,h:1225},{n:"2500 × 1250",w:2500,h:1250}],
  gap:5,edge:10,
  finishes:[{n:"None (raw)",f:1},{n:"Powder coat",f:1.25},{n:"Painted",f:1.2},{n:"Galvanised",f:1.3},{n:"Brushed / polished",f:1.4}],
  complexity:[{n:"Simple",f:1},{n:"Medium",f:1.15},{n:"Complex",f:1.3}],
- vat:15,min:0,cutRate:0,pierce:0,validity:7,prefix:"Q-",next:1,
+ vat:15,min:0,cutRate:0,pierce:0,validity:7,prefix:"Q-",next:1,round:0,dep:50,lead:"",
  biz:"My Laser Workshop",addr:"",vatNo:"",bank:"",terms:"Quote valid for the period shown. 50% deposit required. Final price subject to approved design.",logo:""
 };
 let S;
 try{S=Object.assign(JSON.parse(JSON.stringify(DEF)),JSON.parse(localStorage.getItem('lq2')||'{}'))}catch(e){S=JSON.parse(JSON.stringify(DEF))}
 const save=()=>localStorage.setItem('lq2',JSON.stringify(S));
+$('status').innerHTML=STAT.map(s=>`<option>${s}</option>`).join('');
+$('hs').innerHTML='<option value="all">All quotes</option><option value="open">Open (Draft + Sent)</option>'+STAT.map(s=>`<option>${s}</option>`).join('');
 
 /* ================= IndexedDB ================= */
 let db,clients=[];
@@ -239,12 +300,25 @@ const dbDel=(st,k)=>tx(st,'readwrite',s=>s.delete(k));
 /* ================= file saving / sharing ================= */
 async function saveFile(name,blob){
  const f=new File([blob],name,{type:blob.type});
- try{if(navigator.canShare&&navigator.canShare({files:[f]})){await navigator.share({files:[f],title:name});return}}
- catch(e){if(e.name==='AbortError')return}
+ try{if(navigator.canShare&&navigator.canShare({files:[f]})){await navigator.share({files:[f],title:name});return true}}
+ catch(e){if(e.name==='AbortError')return false}
  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;document.body.appendChild(a);a.click();
  setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},4000);
+ return true;
 }
 const safeName=s=>s.replace(/[^\w\- ]/g,'').trim()||'quote';
+
+/* ================= backup reminder ================= */
+async function bk(){
+ const last=+localStorage.getItem('lqBk')||0;let n=0;
+ try{n=(await dbAll('quotes')).length}catch(e){}
+ const days=last?Math.floor((Date.now()-last)/864e5):null;
+ const show=n>0&&(last===0||days>=7);
+ $('bk').hidden=!show;
+ if(show)$('bkT').textContent=last?`Last backup: ${days} days ago. Back up your quotes now.`:'You have not backed up yet. Back up your quotes now.';
+ $('bkSet').textContent=last?'Last backup: '+new Date(last).toLocaleDateString('en-ZA'):'Last backup: never';
+}
+$('bkBtn').onclick=()=>$('bExpAll').click();
 
 /* ================= settings UI ================= */
 function fill(sel,arr){let v=+sel.value||0;if(v>=arr.length)v=0;sel.innerHTML=arr.map((x,i)=>`<option value="${i}">${esc(x.n)}</option>`).join('');sel.value=v}
@@ -257,12 +331,15 @@ function renderSettings(){
  $('sCpx').innerHTML=rows('complexity',['n','f']);
  document.querySelectorAll('[data-k]').forEach(el=>el.value=S[el.dataset.k]);
  $('logoPrev').hidden=!S.logo;if(S.logo)$('logoPrev').src=S.logo;
+ bk();
 }
 function eRow(k,i,f,v){S[k][i][f]=f==='n'?v:N(v);save();fillAll();calc()}
 function delRow(k,i){if(S[k].length>1){S[k].splice(i,1);save();renderSettings();fillAll();calc()}}
 function addRow(k){S[k].push(k==='materials'?{n:"New",d:7850,r:30}:k==='sheets'?{n:"New sheet",w:2500,h:1250}:{n:"New",f:1});save();renderSettings();fillAll()}
 $('v-set').addEventListener('change',e=>{const k=e.target.dataset&&e.target.dataset.k;if(!k)return;
- S[k]=NUMK.includes(k)?N(e.target.value):e.target.value;save();calc()});
+ S[k]=NUMK.includes(k)?N(e.target.value):e.target.value;save();
+ if(k==='gap')$('gap').value=S.gap;if(k==='edge')$('edge').value=S.edge;
+ calc()});
 $('logoIn').onchange=async e=>{const f=e.target.files[0];if(!f)return;
  const im=await loadImg(URL.createObjectURL(f));const s=Math.min(1,500/im.width,250/im.height);
  const c=document.createElement('canvas');c.width=im.width*s;c.height=im.height*s;c.getContext('2d').drawImage(im,0,0,c.width,c.height);
@@ -272,14 +349,15 @@ $('logoIn').onchange=async e=>{const f=e.target.files[0];if(!f)return;
 let impMode='';
 $('bExpSet').onclick=()=>saveFile('laserquote-settings.json',new Blob([JSON.stringify(S)],{type:'application/json'}));
 $('bExpAll').onclick=async()=>{const o={settings:S,clients:await dbAll('clients'),quotes:await dbAll('quotes')};
- saveFile('laserquote-backup-'+new Date().toISOString().slice(0,10)+'.json',new Blob([JSON.stringify(o)],{type:'application/json'}))};
+ const ok=await saveFile('laserquote-backup-'+new Date().toISOString().slice(0,10)+'.json',new Blob([JSON.stringify(o)],{type:'application/json'}));
+ if(ok){localStorage.setItem('lqBk',String(Date.now()));bk()}};
 $('bImpSet').onclick=()=>{impMode='set';$('impFile').click()};
 $('bImpAll').onclick=()=>{impMode='all';$('impFile').click()};
 $('impFile').onchange=async e=>{const f=e.target.files[0];if(!f)return;e.target.value='';
  try{const o=JSON.parse(await f.text());
   if(impMode==='set'){S=Object.assign(JSON.parse(JSON.stringify(DEF)),o.settings||o)}
   else{S=Object.assign(JSON.parse(JSON.stringify(DEF)),o.settings||{});for(const c of o.clients||[])await dbPut('clients',c);for(const q of o.quotes||[])await dbPut('quotes',q);clients=await dbAll('clients');dl()}
-  save();renderSettings();fillAll();calc();alert('Imported.')}catch(err){alert('That file could not be read.')}};
+  save();renderSettings();fillAll();$('gap').value=S.gap;$('edge').value=S.edge;calc();bk();alert('Imported.')}catch(err){alert('That file could not be read.')}};
 
 /* ================= tabs ================= */
 function tab(n){['quote','hist','set'].forEach(k=>{$('v-'+k).hidden=k!==n;$('t-'+k).classList.toggle('on',k===n)});
@@ -293,11 +371,11 @@ function fitSheet(w,h,sw,sh,gap,edge){
  return n2>n1?{n:n2,rot:true}:{n:n1,rot:false};
 }
 function pickSheet(i){$('sheet').value=i;calc()}
-function sheetPanel(w,h,t,m,q,gap,sel){
+function sheetPanel(w,h,t,m,q,gap,edge,sel){
  if(!(w>0&&h>0&&t>0)){$('sheetInfo').innerHTML='<span class="muted">Enter size and thickness to see sheet usage.</span>';return}
  let best=-1,bc=1e18;
  const info=S.sheets.map((s,i)=>{
-  const f=fitSheet(w,h,s.w,s.h,gap,S.edge),kgS=(s.w/1000)*(s.h/1000)*(t/1000)*m.d;
+  const f=fitSheet(w,h,s.w,s.h,gap,edge),kgS=(s.w/1000)*(s.h/1000)*(t/1000)*m.d;
   const ns=f.n>0?Math.ceil(q/f.n):0,cost=ns*kgS*m.r,waste=f.n>0?100*(1-f.n*w*h/(s.w*s.h)):0;
   if(f.n>0&&cost<bc-1e-9){bc=cost;best=i}
   return{s,f,ns,cost,waste,kgS}});
@@ -308,11 +386,23 @@ function sheetPanel(w,h,t,m,q,gap,sel){
   (x.f.n>0?`<td>${x.f.n}${x.f.rot?'↻':''}</td><td>${x.waste.toFixed(0)}%</td><td>${x.ns}</td><td>${R(x.cost)}${i===best?' ★':''}</td>`
           :`<td colspan="4" class="warn">too big</td>`)+
   `<td>${i==sel?'✔':`<button class="sm" onclick="pickSheet(${i})">Use</button>`}</td></tr>`).join('')+
- `</table><div class="muted">Material = whole sheets needed for the quantity, at your R/kg. ★ = cheapest. ↻ = panel turned 90°. Gap ${gap} mm, edge margin ${S.edge} mm.</div>`;
+ `</table><div class="muted">Material = whole sheets needed for the quantity, at your R/kg. ★ = cheapest. ↻ = panel turned 90°. Gap ${gap} mm, edge margin ${edge} mm.</div>`;
 }
 
+/* ================= extra lines ================= */
+let extras=[];
+function renderExtras(){
+ $('exList').innerHTML=extras.map((e,i)=>`<div class="exrow"><input placeholder="Description (e.g. Delivery)" value="${esc(e.d)}" oninput="exs(${i},'d',this.value)">
+ <div class="srow" style="margin-top:6px"><select onchange="exs(${i},'neg',this.value==='1')"><option value="0" ${e.neg?'':'selected'}>Charge</option><option value="1" ${e.neg?'selected':''}>Discount</option></select>
+ <input placeholder="Amount (R)" inputmode="decimal" value="${esc(e.a)}" oninput="exs(${i},'a',this.value)"><button class="x" onclick="exDel(${i})">✕</button></div></div>`).join('');
+}
+function exs(i,k,v){extras[i][k]=v;calc()}
+function exDel(i){extras.splice(i,1);renderExtras();calc()}
+function exAdd(d,neg){extras.push({d:d||'',a:'',neg:!!neg});renderExtras();calc()}
+
 /* ================= pricing ================= */
-let loops=null,cutLen=0,D={},openPct=0,srcMode='photo';
+let loops=null,cutLen=0,D={},openPct=0,srcMode='photo',priceManual=false;
+const ru=(v,s)=>s>0?Math.ceil(v/s-1e-9)*s:v;
 function calc(){
  const m=S.materials[$('mat').value]||S.materials[0],fi=S.finishes[$('fin').value]||S.finishes[0],cx=S.complexity[$('cpx').value]||S.complexity[0];
  const shI=S.sheets[$('sheet').value]||S.sheets[0];
@@ -320,7 +410,8 @@ function calc(){
  const basis=$('basis').value,net=basis==='net',sheetBasis=basis==='share'||basis==='full';
  $('openWrap').hidden=!net;
  const gap=$('gap').value.trim()===''?S.gap:N($('gap').value);
- const fit=fitSheet(w,h,shI.w,shI.h,gap,S.edge);
+ const edge=$('edge').value.trim()===''?S.edge:N($('edge').value);
+ const fit=fitSheet(w,h,shI.w,shI.h,gap,edge);
  const sheetKg=(shI.w/1000)*(shI.h/1000)*(t/1000)*m.d;
  let area=(w/1000)*(h/1000);if(net)area*=1-N($('open').value)/100;
  const pkg=area*(t/1000)*m.d;
@@ -332,8 +423,38 @@ function calc(){
  const sb=sheetBasis&&!fallback;
  const mc=tot*m.r,fc=mc*fi.f,cc=fc*cx.f;
  const np=loops?loops.length:0,cutC=((loops?cutLen/1000:0)*S.cutRate+np*S.pierce)*q;
- const base=cc+cutC,mgn=base*(1+mg/100),sub=Math.max(mgn,S.min),vatOn=$('vat').value==='1',vat=vatOn?sub*S.vat/100:0,total=sub+vat;
- D={matN:m.n,finN:fi.n,cpxN:cx.n,sheetN:shI.n,gap,basis,kg,pkg,tot,mc,fc,cc,cutC,mgn,sub,vat,total,q,t,w,h,mg,net,vatOn};
+ const cost=cc+cutC,mgn=cost*(1+mg/100),calcMin=Math.max(mgn,S.min),rnd=N($('rnd').value),calcPrice=ru(calcMin,rnd);
+ const pv=$('price').value.trim(),manual=priceManual&&pv!=='',price=manual?N(pv):calcPrice;
+ if(!manual&&document.activeElement!==$('price'))$('price').value=calcPrice.toFixed(2);
+ const ex=extras.map(e=>({d:String(e.d||'').trim(),a:(e.neg?-1:1)*Math.abs(N(e.a))}));
+ const exSum=ex.reduce((s,e)=>s+e.a,0);
+ const vatOn=$('vat').value==='1',sub=price+exSum,vat=vatOn?sub*S.vat/100:0,total=sub+vat;
+ const profit=sub-cost,pm=sub>0?100*profit/sub:0,mu=cost>0?100*profit/cost:0;
+ const dep=Math.min(100,Math.max(0,N($('dep').value))),depAmt=total*dep/100;
+
+ /* warnings */
+ const W=[];
+ if(!$('client').value.trim())W.push('No client name entered.');
+ if(!(w>0&&h>0))W.push('Panel width or height is missing.');
+ if(!(t>0))W.push('Thickness is missing.');
+ if(w>0&&h>0&&t>0){
+  const anyFit=S.sheets.some(s=>fitSheet(w,h,s.w,s.h,gap,edge).n>0);
+  if(!anyFit)W.push('The panel is bigger than every sheet size (after gap and edge margin).');
+  else if(fallback)W.push('The panel does not fit the selected sheet, so it is charged on panel weight.');
+ }
+ if(srcMode==='dxf'&&loops){const no=loops.filter(l=>l.open).length;if(no)W.push(no+' open path(s) in the DXF (red lines): the drawing has gaps, so cut length and open area may be wrong.')}
+ if(net||loops){const op=net?N($('open').value):openPct;
+  if(op<3)W.push('Open area is only '+op.toFixed(1)+'%. Check the threshold, drawing or the open area %.');
+  else if(op>85)W.push('Open area is very high ('+op.toFixed(1)+'%). Check the threshold, drawing or the open area %.')}
+ if(price<=0)W.push('The price to charge is R0.');
+ else if(profit<0)W.push('Your price is below your cost (loss of '+R(-profit)+').');
+ if(extras.some(e=>(String(e.d||'').trim()===''&&N(e.a)!==0)))W.push('An extra line has an amount but no description.');
+ if(extras.some(e=>(String(e.d||'').trim()!==''&&N(e.a)===0)))W.push('An extra line has a description but no amount.');
+ const wb=$('warns');wb.hidden=!W.length;
+ wb.innerHTML=W.length?'<b>⚠ Check before sending</b><ul>'+W.map(x=>'<li>'+esc(x)+'</li>').join('')+'</ul>':'';
+
+ D={matN:m.n,finN:fi.n,cpxN:cx.n,sheetN:shI.n,gap,edge,basis,kg,pkg,tot,mc,fc,cc,cutC,cost,mgn,calcPrice,price,manual,ex,exSum,sub,vat,total,profit,dep,depAmt,q,t,w,h,mg,net,vatOn,warns:W};
+
  $('result').innerHTML=`<table>
  ${fallback?`<tr><td colspan="2" class="warn">⚠ Panel doesn't fit the selected sheet – charged on panel weight instead</td></tr>`:''}
  ${sb?`<tr><td>Panels per sheet</td><td>${fit.n}${fit.rot?' (turned 90°)':''}</td></tr>
@@ -344,16 +465,38 @@ function calc(){
  <tr><td>${esc(fi.n)} (×${fi.f})</td><td>${R(fc-mc)}</td></tr>
  <tr><td>${esc(cx.n)} (×${cx.f})</td><td>${R(cc-fc)}</td></tr>
  ${cutC>0?`<tr><td>Cut length / pierces</td><td>${R(cutC)}</td></tr>`:''}
- <tr><td>Margin ${mg}%</td><td>${R(mgn-base)}</td></tr>
+ <tr><td>Margin ${mg}%</td><td>${R(mgn-cost)}</td></tr>
  ${S.min>mgn?`<tr><td>Minimum charge applied</td><td>${R(S.min-mgn)}</td></tr>`:''}
+ ${calcPrice-calcMin>0.004?`<tr><td>Rounded up to nearest R${rnd}</td><td>${R(calcPrice-calcMin)}</td></tr>`:''}
+ <tr><td><b>Calculated price (before VAT)</b></td><td><b>${R(calcPrice)}</b></td></tr></table>
+ <div class="muted">Calculated per panel: ${R(calcPrice/q)}${loops?` · ${srcMode==='dxf'?'DXF':'traced'}: ${np} paths, ≈${(cutLen/1000).toFixed(2)} m cut per panel`:''}</div>`;
+
+ $('calcNote').textContent='Calculated price: '+R(calcPrice)+' (before VAT)';
+ if(manual){const df=price-calcPrice,pc=calcPrice>0?100*df/calcPrice:0;
+  $('priceNote').textContent=`You are charging ${R(Math.abs(df))} ${df>=0?'above':'below'} the calculated price (${pc>=0?'+':''}${pc.toFixed(1)}%). Tap Reset to go back.`}
+ else $('priceNote').textContent='Using the calculated price. Type a different amount above to override it.';
+
+ $('totals').innerHTML=`<table>
+ <tr><td>${manual?'Your price':'Price'}${q>1?' (all '+q+' panels)':''}, excl. VAT</td><td>${R(price)}</td></tr>
+ ${ex.filter(e=>e.d||e.a).map(e=>`<tr><td>${esc(e.d||'Additional charge')}</td><td>${R(e.a)}</td></tr>`).join('')}
  <tr><td>Subtotal</td><td>${R(sub)}</td></tr>
  <tr><td>VAT ${vatOn?S.vat+'%':''}</td><td>${R(vat)}</td></tr></table>
- <div style="margin-top:8px">Total</div><div class="total">${R(total)}</div>
- <div class="muted">Per panel: ${R(total/q)}${loops?` · ${srcMode==='dxf'?'DXF':'traced'}: ${np} paths, ≈${(cutLen/1000).toFixed(2)} m cut per panel`:''}</div>`;
- sheetPanel(w,h,t,m,q,gap,+$('sheet').value||0);
+ <div style="margin-top:8px">Total to client</div><div class="total">${R(total)}</div>
+ <div class="muted">Per panel: ${R(price/q)} excl. VAT${dep>0?` · Deposit ${dep}%: ${R(depAmt)} · Balance: ${R(total-depAmt)}`:''}</div>
+ <div class="sheetbox"><b>Your profit (not shown on the PDF)</b><table>
+ <tr><td>Cost (material, finish, complexity, cutting)</td><td>${R(cost)}</td></tr>
+ <tr><td>Your price excl. VAT (incl. extra lines)</td><td>${R(sub)}</td></tr>
+ <tr><td>Profit</td><td class="${profit<0?'warn':''}">${R(profit)}</td></tr>
+ <tr><td>Margin on selling price</td><td>${pm.toFixed(1)}%</td></tr>
+ <tr><td>Markup on cost</td><td>${mu.toFixed(1)}%</td></tr></table>
+ <div class="muted">Extra lines count as pure income here.</div></div>`;
+
+ sheetPanel(w,h,t,m,q,gap,edge,+$('sheet').value||0);
  return D;
 }
-document.querySelectorAll('#v-quote input,#v-quote select').forEach(el=>el.addEventListener('input',calc));
+document.querySelectorAll('#v-quote input,#v-quote select,#v-quote textarea').forEach(el=>el.addEventListener('input',()=>{if(el.id==='price')priceManual=true;calc()}));
+$('price').addEventListener('change',()=>{if($('price').value.trim()==='')priceManual=false;calc()});
+$('btnReset').onclick=()=>{$('price').blur();priceManual=false;$('price').value='';calc()};
 
 /* ================= photo + perspective picker ================= */
 const pickC=$('pick'),srcC=document.createElement('canvas');
@@ -722,8 +865,8 @@ function wrap(x,text,px,py,maxW,lh){
 function fit(x,im,bx,by,bw,bh){const s=Math.min(bw/im.width,bh/im.height),w=im.width*s,h=im.height*s;
  x.drawImage(im,bx+(bw-w)/2,by+(bh-h)/2,w,h);x.strokeStyle='#ccc';x.lineWidth=2;x.strokeRect(bx,by,bw,bh)}
 const prevCan=()=>srcMode==='dxf'?(loops?$('dxfC'):null):(gray?$('mask'):null);
-async function quoteCanvas(q){
- const W=1240,H=1754,M=80,F='Helvetica,Arial,sans-serif',RED='#c8102e',c=document.createElement('canvas');
+async function drawQuote(q,H,bh){
+ const W=1240,M=80,F='Helvetica,Arial,sans-serif',RED='#c8102e',c=document.createElement('canvas');
  c.width=W;c.height=H;const x=c.getContext('2d');x.fillStyle='#fff';x.fillRect(0,0,W,H);x.textBaseline='top';x.textAlign='left';
  let y=M,ly=M;
  if(S.logo){try{const im=await loadImg(S.logo),s=Math.min(360/im.width,150/im.height);x.drawImage(im,M,ly,im.width*s,im.height*s);ly+=im.height*s+14}catch(e){}}
@@ -739,9 +882,12 @@ async function quoteCanvas(q){
  x.fillStyle='#777';x.font=`22px ${F}`;x.fillText('PREPARED FOR',M,y);y+=30;
  x.fillStyle='#111';x.font=`bold 32px ${F}`;x.fillText(q.client.name||'-',M,y);y+=44;
  x.font=`24px ${F}`;x.fillStyle='#444';
- [q.client.phone,q.client.email].filter(Boolean).forEach(l=>{x.fillText(l,M,y);y+=32});
+ const cl=[q.client.phone,q.client.email].concat(String(q.client.addr||'').split('\n')).concat(q.client.cvat?['VAT no: '+q.client.cvat]:[]).map(s=>String(s||'').trim()).filter(Boolean);
+ cl.forEach(l=>{x.fillText(l,M,y);y+=32});
+ if(q.desc&&q.desc.trim()){y+=12;x.fillStyle='#777';x.font=`22px ${F}`;x.fillText('DESCRIPTION',M,y);y+=30;
+  x.fillStyle='#111';x.font=`26px ${F}`;y=wrap(x,q.desc.trim(),M,y,W-2*M,34)}
  y+=20;
- const bh=440,pc=q.incPrev?prevCan():null,hasPh=!!photoURL,bw=(pc&&hasPh)?(W-2*M-30)/2:W-2*M;let bx=M;
+ const pc=q.incPrev?prevCan():null,hasPh=!!photoURL,bw=(pc&&hasPh)?(W-2*M-30)/2:W-2*M;let bx=M;
  if(hasPh){try{fit(x,await loadImg(photoURL),M,y,bw,bh)}catch(e){}bx=M+bw+30}
  if(pc)fit(x,pc,bx,y,bw,bh);
  x.fillStyle='#777';x.font=`20px ${F}`;
@@ -750,16 +896,33 @@ async function quoteCanvas(q){
  if(hasPh||pc)y+=bh+50;
  const d=q.calc,pw=d.pkg!=null?d.pkg*d.q:d.tot;
  const rowsA=[['Material',d.matN],['Thickness',d.t+' mm'],['Panel size',d.w+' × '+d.h+' mm'],['Quantity',String(d.q)],['Finish',d.finN],['Approx. panel weight',pw.toFixed(1)+' kg']];
+ if(q.lead&&q.lead.trim())rowsA.push(['Estimated lead time',q.lead.trim()]);
  rowsA.forEach((r,i)=>{if(i%2===0){x.fillStyle='#f4f4f4';x.fillRect(M,y,W-2*M,50)}
   x.fillStyle='#111';x.font=`26px ${F}`;x.fillText(r[0],M+16,y+10);x.textAlign='right';x.fillText(r[1],W-M-16,y+10);x.textAlign='left';y+=50});
  y+=20;
- const tot=[['Price per panel (excl. VAT)',R(d.sub/d.q)],['Subtotal (excl. VAT)',R(d.sub)],['VAT'+(d.vatOn?' '+S.vat+'%':''),R(d.vat)]];
- tot.forEach(r=>{x.font=`26px ${F}`;x.fillStyle='#111';x.fillText(r[0],M+16,y);x.textAlign='right';x.fillText(r[1],W-M-16,y);x.textAlign='left';y+=42});
+ const exs=(d.ex||[]).filter(e=>e.d||e.a),tot=[];
+ if(d.q>1)tot.push(['Price per panel (excl. VAT)',R(d.price/d.q)]);
+ if(exs.length){tot.push([d.q>1?'Panels × '+d.q+' (excl. VAT)':'Panel (excl. VAT)',R(d.price)]);exs.forEach(e=>tot.push([e.d||'Additional charge',R(e.a)]))}
+ tot.push(['Subtotal (excl. VAT)',R(d.sub)],['VAT'+(d.vatOn?' '+S.vat+'%':''),R(d.vat)]);
+ tot.forEach(r=>{x.font=`26px ${F}`;x.fillStyle='#111';x.fillText(String(r[0]).slice(0,60),M+16,y);x.textAlign='right';x.fillText(r[1],W-M-16,y);x.textAlign='left';y+=42});
  x.fillStyle=RED;x.fillRect(M,y+4,W-2*M,3);y+=22;
- x.font=`bold 40px ${F}`;x.fillStyle=RED;x.fillText('TOTAL',M+16,y);x.textAlign='right';x.fillText(R(d.total),W-M-16,y);x.textAlign='left';y+=80;
+ x.font=`bold 40px ${F}`;x.fillStyle=RED;x.fillText('TOTAL',M+16,y);x.textAlign='right';x.fillText(R(d.total),W-M-16,y);x.textAlign='left';y+=64;
+ if(d.dep>0){x.font=`26px ${F}`;x.fillStyle='#111';
+  x.fillText(`Deposit (${d.dep}%) payable on acceptance`,M+16,y);x.textAlign='right';x.fillText(R(d.depAmt),W-M-16,y);x.textAlign='left';y+=38;
+  x.fillText('Balance due',M+16,y);x.textAlign='right';x.fillText(R(d.total-d.depAmt),W-M-16,y);x.textAlign='left';y+=56}
+ else y+=16;
  x.fillStyle='#444';x.font=`22px ${F}`;
  if(S.terms)y=wrap(x,S.terms,M,y,W-2*M,30)+14;
- if(S.bank){x.font=`bold 22px ${F}`;x.fillText('Banking details',M,y);y+=30;x.font=`22px ${F}`;wrap(x,S.bank,M,y,W-2*M,30)}
+ if(S.bank){x.font=`bold 22px ${F}`;x.fillText('Banking details',M,y);y+=30;x.font=`22px ${F}`;y=wrap(x,S.bank,M,y,W-2*M,30)}
+ return{c,end:y};
+}
+async function quoteCanvas(q){
+ const A=1754,M=80,TH=4200;
+ let r=await drawQuote(q,TH,440),over=r.end+M-A;
+ if(over>0){r=await drawQuote(q,TH,Math.max(200,440-over));over=r.end+M-A}
+ const c=document.createElement('canvas');c.width=1240;c.height=A;const x=c.getContext('2d');x.fillStyle='#fff';x.fillRect(0,0,1240,A);
+ const hh=Math.min(TH,r.end+M),s=Math.min(1,A/hh);
+ x.drawImage(r.c,0,0,1240,hh,(1240-1240*s)/2,0,1240*s,hh*s);
  return c;
 }
 async function makePDF(canvas){
@@ -779,7 +942,10 @@ async function makePDF(canvas){
  add(xr+`trailer\n<</Size 6/Root 1 0 R>>\nstartxref\n${xo}\n%%EOF`);
  return new Blob(parts,{type:'application/pdf'});
 }
-$('btnPDF').onclick=async()=>{const q=await saveQuote();const pdf=await makePDF(await quoteCanvas(q));
+$('btnPDF').onclick=async()=>{
+ const d0=calc();
+ if(d0.warns.length&&!confirm('Check before sending:\n\n• '+d0.warns.join('\n• ')+'\n\nCreate the PDF anyway?'))return;
+ const q=await saveQuote();const pdf=await makePDF(await quoteCanvas(q));
  await saveFile(safeName(q.number+' '+q.client.name)+'.pdf',pdf)};
 
 /* ================= clients / save / history ================= */
@@ -789,12 +955,15 @@ function selByName(sel,arr,n){const i=arr.findIndex(a=>a.n===n);sel.value=i<0?0:
 $('client').addEventListener('change',()=>{
  const c=clients.find(c=>c.key===$('client').value.trim().toLowerCase());if(!c)return;
  if(!$('phone').value)$('phone').value=c.phone||'';if(!$('email').value)$('email').value=c.email||'';
+ if(!$('addr').value)$('addr').value=c.addr||'';if(!$('cvat').value)$('cvat').value=c.cvat||'';
  if(c.margin!=null)$('mg').value=c.margin;
  if(c.basis)$('basis').value=c.basis;
  if(c.sheet)selByName($('sheet'),S.sheets,c.sheet);
  if(c.fin)selByName($('fin'),S.finishes,c.fin);
  if(c.vat!=null)$('vat').value=c.vat;
- $('cnote').hidden=false;$('cnote').textContent='Saved settings for this client applied (margin, material basis, sheet, finish, VAT). Change anything for this quote if needed.';
+ if(c.rnd!=null)$('rnd').value=c.rnd;
+ if(c.dep!=null)$('dep').value=c.dep;
+ $('cnote').hidden=false;$('cnote').textContent='Saved settings for this client applied (margin, material basis, sheet, finish, VAT, rounding, deposit). Change anything for this quote if needed.';
  calc()});
 async function saveQuote(asNew){
  const d=calc();
@@ -802,45 +971,67 @@ async function saveQuote(asNew){
  if(!curId)curId='q'+Date.now().toString(36)+Math.random().toString(36).slice(2,5);
  if(!curNo){curNo=S.prefix+String(S.next).padStart(4,'0');S.next++;save()}
  const name=$('client').value.trim();
- const q={id:curId,number:curNo,date:Date.now(),client:{name,phone:$('phone').value,email:$('email').value},
-  inputs:{w:d.w,h:d.h,t:d.t,q:d.q,basis:$('basis').value,open:N($('open').value),mg:d.mg,vat:$('vat').value,sheet:d.sheetN,gap:d.gap},
+ const q={id:curId,number:curNo,date:Date.now(),
+  client:{name,phone:$('phone').value,email:$('email').value,addr:$('addr').value,cvat:$('cvat').value},
+  inputs:{w:d.w,h:d.h,t:d.t,q:d.q,basis:$('basis').value,open:N($('open').value),mg:d.mg,vat:$('vat').value,sheet:d.sheetN,gap:d.gap,edge:d.edge,rnd:$('rnd').value,dep:$('dep').value},
   matN:d.matN,finN:d.finN,cpxN:d.cpxN,calc:d,photo:photoURL,src:srcMode,dxfName:dxfName,
+  extras:extras.map(e=>({d:e.d,a:e.a,neg:!!e.neg})),priceManual:d.manual,priceVal:d.price,
+  desc:$('desc').value,lead:$('lead').value,status:$('status').value||'Draft',
   corners:corners?corners.map(c=>[c[0]/srcC.width,c[1]/srcC.height]):null,
   thr:gray?+$('thr').value:null,md:$('metalDark').value,shade:$('shade').checked,minA:$('minA').value,
   incPrev:srcMode==='dxf'?$('incPrev2').checked:$('incPrev').checked,
   loops:loops,cutLen:cutLen,fdims:fdims,openPct:openPct};
  await dbPut('quotes',q);
- if(name){const c={key:name.toLowerCase(),name,phone:q.client.phone,email:q.client.email,margin:d.mg,basis:$('basis').value,sheet:d.sheetN,fin:d.finN,vat:$('vat').value};await dbPut('clients',c);
+ if(name){const c={key:name.toLowerCase(),name,phone:q.client.phone,email:q.client.email,addr:q.client.addr,cvat:q.client.cvat,margin:d.mg,basis:$('basis').value,sheet:d.sheetN,fin:d.finN,vat:$('vat').value,rnd:$('rnd').value,dep:$('dep').value};await dbPut('clients',c);
   clients=await dbAll('clients');dl()}
  $('qno').textContent='Quote '+curNo+' (saved)';
+ bk();
  return q;
 }
 $('btnSave').onclick=async()=>{await saveQuote();alert('Saved.')};
 $('btnSaveNew').onclick=async()=>{await saveQuote(true);alert('Saved as '+curNo)};
 async function renderHist(){
- const qs=(await dbAll('quotes')).sort((a,b)=>b.date-a.date),f=$('hq').value.toLowerCase();
- $('hlist').innerHTML=qs.filter(q=>!f||(q.client.name+' '+q.number).toLowerCase().includes(f)).map(q=>
-  `<div class="card"><div style="display:flex;justify-content:space-between"><b>${esc(q.number)}</b><b>${R(q.calc.total)}</b></div>
+ const all=(await dbAll('quotes')).sort((a,b)=>b.date-a.date),f=$('hq').value.toLowerCase(),sf=$('hs').value||'all';
+ const st=q=>q.status||'Draft',isOpen=q=>st(q)==='Draft'||st(q)==='Sent';
+ const op=all.filter(isOpen),ac=all.filter(q=>st(q)==='Accepted');
+ const sm=a=>a.reduce((s,q)=>s+(q.calc&&q.calc.total||0),0);
+ $('hsum').innerHTML=`Open (Draft + Sent): <b>${op.length}</b> · ${R(sm(op))} &nbsp;|&nbsp; Accepted: <b>${ac.length}</b> · ${R(sm(ac))}`;
+ const list=all.filter(q=>(!f||(q.client.name+' '+q.number+' '+(q.client.phone||'')).toLowerCase().includes(f))&&(sf==='all'||(sf==='open'?isOpen(q):st(q)===sf)));
+ $('hlist').innerHTML=list.map(q=>{
+  const ph=q.client.phone?`<a href="tel:${esc(q.client.phone.replace(/[^\d+]/g,''))}">${esc(q.client.phone)}</a>`:'',em=q.client.email?`<a href="mailto:${esc(q.client.email)}">${esc(q.client.email)}</a>`:'';
+  return `<div class="card"><div style="display:flex;justify-content:space-between"><b>${esc(q.number)}</b><b>${R(q.calc.total)}</b></div>
   <div>${esc(q.client.name||'(no name)')}</div>
+  ${(ph||em)?`<div class="muted">${ph}${ph&&em?' · ':''}${em}</div>`:''}
   <div class="muted">${new Date(q.date).toLocaleDateString('en-ZA')} · ${esc(q.matN)} ${q.inputs.t} mm · ${q.inputs.w}×${q.inputs.h} ×${q.inputs.q}</div>
-  <button class="sec" onclick="openQ('${q.id}')">Open</button> <button class="sec" onclick="delQ('${q.id}')">Delete</button></div>`).join('')
-  ||'<p class="muted">No quotes yet.</p>';
+  <select class="st" style="color:${SCOL[st(q)]}" onchange="setStatus('${q.id}',this.value)">${STAT.map(s=>`<option ${s===st(q)?'selected':''}>${s}</option>`).join('')}</select><br>
+  <button class="sec" onclick="openQ('${q.id}')">Open</button> <button class="sec" onclick="delQ('${q.id}')">Delete</button></div>`}).join('')
+  ||'<p class="muted">No quotes found.</p>';
 }
 $('hq').addEventListener('input',renderHist);
-async function delQ(id){if(confirm('Delete this quote?')){await dbDel('quotes',id);renderHist()}}
+$('hs').addEventListener('change',renderHist);
+async function setStatus(id,s){const q=await dbGet('quotes',id);if(!q)return;q.status=s;await dbPut('quotes',q);if(curId===id)$('status').value=s;renderHist()}
+async function delQ(id){if(confirm('Delete this quote?')){await dbDel('quotes',id);renderHist();bk()}}
 async function openQ(id){await loadQuote(await dbGet('quotes',id));tab('quote')}
 function resetQuote(){
- curId=null;curNo=null;['client','phone','email'].forEach(i=>$(i).value='');$('photo').value='';$('dxfIn').value='';
+ curId=null;curNo=null;['client','phone','email','addr','cvat'].forEach(i=>$(i).value='');$('photo').value='';$('dxfIn').value='';
  corners=null;gray=base=metal=null;loops=null;cutLen=0;photoURL='';$('pickWrap').hidden=true;$('anal').hidden=true;
  srcMode='photo';dxfRaw=null;dxfPaths=null;dxfName='';$('dxfWrap').hidden=true;$('dxfCtl').hidden=false;
- $('cnote').hidden=true;$('gap').value=S.gap;
+ $('cnote').hidden=true;$('gap').value=S.gap;$('edge').value=S.edge;
+ priceManual=false;$('price').value='';extras=[];renderExtras();
+ $('desc').value='';$('lead').value=S.lead;$('dep').value=S.dep;$('rnd').value=S.round;$('status').value='Draft';
  $('qno').textContent='New quote';$('basis').value='gross';$('thr').value=128;$('shade').checked=false;calc();
 }
 async function loadQuote(q){
  resetQuote();curId=q.id;curNo=q.number;
  $('client').value=q.client.name;$('phone').value=q.client.phone||'';$('email').value=q.client.email||'';
+ $('addr').value=q.client.addr||'';$('cvat').value=q.client.cvat||'';
  const i=q.inputs;$('w').value=i.w;$('h').value=i.h;$('t').value=i.t;$('q').value=i.q;$('basis').value=i.basis;$('open').value=i.open;$('mg').value=i.mg;$('vat').value=i.vat;
  $('gap').value=i.gap!=null?i.gap:S.gap;
+ $('edge').value=i.edge!=null?i.edge:S.edge;
+ if(i.rnd!=null)$('rnd').value=i.rnd;
+ if(i.dep!=null)$('dep').value=i.dep;
+ $('desc').value=q.desc||'';$('lead').value=q.lead!=null?q.lead:S.lead;$('status').value=q.status||'Draft';
+ extras=(q.extras||[]).map(e=>({d:e.d,a:e.a,neg:!!e.neg}));renderExtras();
  selByName($('mat'),S.materials,q.matN);selByName($('fin'),S.finishes,q.finN);selByName($('cpx'),S.complexity,q.cpxN);
  if(i.sheet)selByName($('sheet'),S.sheets,i.sheet);
  $('qno').textContent='Quote '+q.number;
@@ -855,6 +1046,8 @@ async function loadQuote(q){
   drawDxfPrev();
  }else if(q.loops){loops=q.loops;cutLen=q.cutLen;fdims=q.fdims||fdims;$('traceOut').textContent=`${loops.length} cut paths · ≈${(cutLen/1000).toFixed(2)} m of cut per panel`}
  calc();
+ /* keep the price that was quoted, even if rates changed since */
+ if(q.priceVal!=null&&(q.priceManual||Math.abs(D.calcPrice-q.priceVal)>0.005)){priceManual=true;$('price').value=q.priceVal.toFixed(2);calc()}
 }
 $('newBtn').onclick=()=>{resetQuote();tab('quote')};
 
@@ -864,5 +1057,5 @@ $('newBtn').onclick=()=>{resetQuote();tab('quote')};
  $('icon').href=c.toDataURL()})();
 if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});
 (async()=>{try{await openDB();clients=await dbAll('clients');dl()}catch(e){alert('Saving quotes is not available in this browser mode.')}
- fillAll();$('gap').value=S.gap;calc()})();
+ fillAll();$('gap').value=S.gap;$('edge').value=S.edge;$('rnd').value=S.round;$('dep').value=S.dep;$('lead').value=S.lead;calc();bk()})();
 </script></body></html>
