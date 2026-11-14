@@ -1,1 +1,569 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Laser Quote">
+<meta name="theme-color" content="#c8102e">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" id="icon">
+<title>Laser Quote</title>
+<style>
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+body{font-family:-apple-system,Helvetica,Arial,sans-serif;margin:0;background:#f2f2f7;color:#111;padding-bottom:80px}
+header{background:#c8102e;color:#fff;padding:14px 16px;padding-top:max(14px,env(safe-area-inset-top));font-weight:700;font-size:18px;display:flex;justify-content:space-between;align-items:center;position:sticky;top:0;z-index:5}
+header button{background:#fff;color:#c8102e;border:0;border-radius:8px;padding:6px 12px;font-weight:600}
+main{padding:12px;max-width:640px;margin:auto}
+.card{background:#fff;border-radius:12px;padding:12px;margin-bottom:12px}
+label{display:block;font-size:13px;color:#555;margin:8px 0 3px}
+input,select,textarea{width:100%;padding:11px;font-size:16px;border:1px solid #ccc;border-radius:8px;background:#fff;font-family:inherit}
+input[type=checkbox]{width:auto;margin-right:6px}
+input[type=range]{padding:0}
+.row{display:flex;gap:8px}.row>div{flex:1}
+.muted{color:#777;font-size:13px;margin:6px 0}
+.total{font-size:30px;font-weight:800;color:#c8102e}
+table{width:100%;border-collapse:collapse;font-size:14px}
+td{padding:4px 0}td:last-child{text-align:right}
+button.main{width:100%;padding:14px;font-size:17px;border:0;border-radius:10px;background:#c8102e;color:#fff;font-weight:700;margin-top:8px}
+button.sec{padding:10px 12px;border:1px solid #c8102e;background:#fff;color:#c8102e;border-radius:8px;margin-top:8px;font-size:15px}
+button.x{border:0;background:#eee;border-radius:8px;padding:0 10px}
+canvas{display:block;width:100%;height:auto;border-radius:8px;margin-top:6px}
+#pick{touch-action:none}
+.pv{border:1px solid #ddd}
+.srow{display:flex;gap:6px;margin-bottom:6px}
+.srow input{flex:1;min-width:0}
+nav{position:fixed;bottom:0;left:0;right:0;background:#fff;border-top:1px solid #ddd;display:flex;padding-bottom:env(safe-area-inset-bottom);z-index:6}
+nav button{flex:1;padding:14px 0;border:0;background:none;font-size:15px;color:#777;font-weight:600}
+nav button.on{color:#c8102e}
+</style></head><body>
+<header><span id="title">Laser Quote</span><button id="newBtn">+ New</button></header>
+<main>
 
+<!-- ============ QUOTE ============ -->
+<section id="v-quote">
+ <div class="card">
+  <div id="qno" class="muted">New quote</div>
+  <label>Client name</label><input id="client" list="cl" autocomplete="off">
+  <datalist id="cl"></datalist>
+  <div class="row">
+   <div><label>Phone</label><input id="phone" type="tel"></div>
+   <div><label>Email</label><input id="email" type="email"></div>
+  </div>
+ </div>
+
+ <div class="card">
+  <b>1. Panel &amp; reference photo</b>
+  <div class="row">
+   <div><label>Panel width (mm)</label><input id="w" type="number" inputmode="decimal" value="1200"></div>
+   <div><label>Panel height (mm)</label><input id="h" type="number" inputmode="decimal" value="600"></div>
+  </div>
+  <label>Reference photo</label><input type="file" id="photo" accept="image/*">
+  <div id="pickWrap" hidden>
+   <p class="muted">Drag the 4 red handles onto the corners of the panel (1 = top-left, then clockwise). A zoom circle shows while dragging.</p>
+   <canvas id="pick"></canvas>
+   <button class="main" id="btnFlat">Flatten photo &amp; measure</button>
+  </div>
+ </div>
+
+ <div class="card" id="anal" hidden>
+  <b>2. Cut-out analysis</b>
+  <div class="muted">Flattened photo</div><canvas id="flat" class="pv"></canvas>
+  <div class="muted">Detected: metal = dark grey, cut-outs = white</div><canvas id="mask" class="pv"></canvas>
+  <label>Metal is…</label>
+  <select id="metalDark"><option value="1">Darker than the cut-outs</option><option value="0">Lighter than the cut-outs</option></select>
+  <label>Threshold <span id="thrV"></span></label><input type="range" id="thr" min="0" max="255" value="128">
+  <label><input type="checkbox" id="shade">Even out uneven lighting / shadows</label>
+  <div id="openOut" style="margin-top:8px"></div>
+  <button class="sec" id="btnUse">Use this open area for net-weight pricing</button>
+  <label>Ignore details smaller than (mm²)</label><input id="minA" type="number" inputmode="decimal" value="4">
+  <button class="sec" id="btnTrace">Trace outlines (cut length &amp; pierces)</button>
+  <div id="traceOut" class="muted"></div>
+  <label><input type="checkbox" id="incPrev" checked>Show cut preview on PDF quote</label>
+ </div>
+
+ <div class="card">
+  <b>3. Pricing</b>
+  <label>Material</label><select id="mat"></select>
+  <div class="row">
+   <div><label>Thickness (mm)</label><input id="t" type="number" inputmode="decimal" value="3"></div>
+   <div><label>Quantity</label><input id="q" type="number" inputmode="numeric" value="1"></div>
+  </div>
+  <label>Weight basis</label>
+  <select id="basis"><option value="gross">Gross (full rectangle)</option><option value="net">Net (after cut-outs)</option></select>
+  <div id="openWrap" hidden><label>Open area % (cut away)</label><input id="open" type="number" inputmode="decimal" value="30"></div>
+  <label>Finish</label><select id="fin"></select>
+  <label>Design complexity</label><select id="cpx"></select>
+  <div class="row">
+   <div><label>Margin % (this client)</label><input id="mg" type="number" inputmode="decimal" value="20"></div>
+   <div><label>Add VAT?</label><select id="vat"><option value="1">Yes</option><option value="0">No</option></select></div>
+  </div>
+ </div>
+
+ <div class="card" id="result"></div>
+
+ <button class="main" id="btnPDF">Create PDF quote (save &amp; share)</button>
+ <button class="sec" id="btnSave" style="width:100%">Save quote</button>
+ <button class="sec" id="btnSaveNew" style="width:100%">Save as new quote (copy)</button>
+ <div class="row">
+  <div><button class="sec" id="btnSVG" style="width:100%">Export SVG</button></div>
+  <div><button class="sec" id="btnDXF" style="width:100%">Export DXF</button></div>
+ </div>
+</section>
+
+<!-- ============ HISTORY ============ -->
+<section id="v-hist" hidden>
+ <div class="card"><input id="hq" placeholder="Search client or quote number"></div>
+ <div id="hlist"></div>
+</section>
+
+<!-- ============ SETTINGS ============ -->
+<section id="v-set" hidden>
+ <div class="card"><b>Materials</b><div class="muted">name · density kg/m³ · R per kg</div><div id="sMat"></div><button class="sec" onclick="addRow('materials')">+ Add</button></div>
+ <div class="card"><b>Finishes</b><div class="muted">name · cost factor (1.25 = +25%)</div><div id="sFin"></div><button class="sec" onclick="addRow('finishes')">+ Add</button></div>
+ <div class="card"><b>Complexity</b><div class="muted">name · cost factor</div><div id="sCpx"></div><button class="sec" onclick="addRow('complexity')">+ Add</button></div>
+ <div class="card"><b>Pricing rules</b>
+  <label>VAT %</label><input data-k="vat" type="number" inputmode="decimal">
+  <label>Minimum charge (R, before VAT)</label><input data-k="min" type="number" inputmode="decimal">
+  <label>Cut rate (R per metre of cut, 0 = off)</label><input data-k="cutRate" type="number" inputmode="decimal">
+  <label>Pierce cost (R per pierce, 0 = off)</label><input data-k="pierce" type="number" inputmode="decimal">
+  <div class="muted">Cut rate / pierce cost use the traced outline. Don't double-charge with the complexity factor.</div>
+ </div>
+ <div class="card"><b>Business &amp; quote</b>
+  <label>Business name</label><input data-k="biz">
+  <label>Address / phone / email (one per line)</label><textarea data-k="addr" rows="4"></textarea>
+  <label>VAT number</label><input data-k="vatNo">
+  <label>Banking details</label><textarea data-k="bank" rows="3"></textarea>
+  <label>Terms &amp; notes</label><textarea data-k="terms" rows="3"></textarea>
+  <div class="row">
+   <div><label>Valid for (days)</label><input data-k="validity" type="number" inputmode="numeric"></div>
+   <div><label>Number prefix</label><input data-k="prefix"></div>
+   <div><label>Next number</label><input data-k="next" type="number" inputmode="numeric"></div>
+  </div>
+  <label>Logo</label><input type="file" id="logoIn" accept="image/*">
+  <img id="logoPrev" style="max-width:200px;margin-top:6px" hidden>
+ </div>
+ <div class="card"><b>Data</b>
+  <button class="sec" id="bExpSet" style="width:100%">Export settings (share rates with colleagues)</button>
+  <button class="sec" id="bImpSet" style="width:100%">Import settings</button>
+  <button class="sec" id="bExpAll" style="width:100%">Backup everything (settings, clients, quotes)</button>
+  <button class="sec" id="bImpAll" style="width:100%">Restore backup</button>
+  <input type="file" id="impFile" accept=".json,application/json" hidden>
+ </div>
+</section>
+</main>
+
+<nav>
+ <button id="t-quote" class="on" onclick="tab('quote')">Quote</button>
+ <button id="t-hist" onclick="tab('hist')">History</button>
+ <button id="t-set" onclick="tab('set')">Settings</button>
+</nav>
+
+<script>
+/* ================= basics ================= */
+const $=id=>document.getElementById(id);
+const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const R=n=>"R "+n.toLocaleString('en-ZA',{minimumFractionDigits:2,maximumFractionDigits:2});
+const loadImg=src=>new Promise((res,rej)=>{const i=new Image();i.onload=()=>res(i);i.onerror=rej;i.src=src});
+const DEF={
+ materials:[{n:"Mild steel",d:7850,r:30},{n:"Stainless steel",d:7900,r:90},{n:"Aluminium",d:2700,r:80}],
+ finishes:[{n:"None (raw)",f:1},{n:"Powder coat",f:1.25},{n:"Painted",f:1.2},{n:"Galvanised",f:1.3},{n:"Brushed / polished",f:1.4}],
+ complexity:[{n:"Simple",f:1},{n:"Medium",f:1.15},{n:"Complex",f:1.3}],
+ vat:15,min:0,cutRate:0,pierce:0,validity:7,prefix:"Q-",next:1,
+ biz:"My Laser Workshop",addr:"",vatNo:"",bank:"",terms:"Quote valid for the period shown. 50% deposit required. Final price subject to approved design.",logo:""
+};
+let S;
+try{S=Object.assign(JSON.parse(JSON.stringify(DEF)),JSON.parse(localStorage.getItem('lq2')||'{}'))}catch(e){S=JSON.parse(JSON.stringify(DEF))}
+const save=()=>localStorage.setItem('lq2',JSON.stringify(S));
+
+/* ================= IndexedDB ================= */
+let db,clients=[];
+function openDB(){return new Promise((res,rej)=>{const r=indexedDB.open('lq',1);
+ r.onupgradeneeded=()=>{const d=r.result;d.createObjectStore('quotes',{keyPath:'id'});d.createObjectStore('clients',{keyPath:'key'})};
+ r.onsuccess=()=>{db=r.result;res()};r.onerror=()=>rej(r.error)})}
+const tx=(st,mode,fn)=>new Promise((res,rej)=>{const t=db.transaction(st,mode);const rq=fn(t.objectStore(st));t.oncomplete=()=>res(rq&&rq.result);t.onerror=()=>rej(t.error)});
+const dbPut=(st,v)=>tx(st,'readwrite',s=>s.put(v));
+const dbAll=st=>tx(st,'readonly',s=>s.getAll());
+const dbGet=(st,k)=>tx(st,'readonly',s=>s.get(k));
+const dbDel=(st,k)=>tx(st,'readwrite',s=>s.delete(k));
+
+/* ================= file saving / sharing ================= */
+async function saveFile(name,blob){
+ const f=new File([blob],name,{type:blob.type});
+ try{if(navigator.canShare&&navigator.canShare({files:[f]})){await navigator.share({files:[f],title:name});return}}
+ catch(e){if(e.name==='AbortError')return}
+ const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;document.body.appendChild(a);a.click();
+ setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},4000);
+}
+const safeName=s=>s.replace(/[^\w\- ]/g,'').trim()||'quote';
+
+/* ================= settings UI ================= */
+function fill(sel,arr){let v=+sel.value||0;if(v>=arr.length)v=0;sel.innerHTML=arr.map((x,i)=>`<option value="${i}">${esc(x.n)}</option>`).join('');sel.value=v}
+function fillAll(){fill($('mat'),S.materials);fill($('fin'),S.finishes);fill($('cpx'),S.complexity)}
+function rows(k,cols){return S[k].map((m,i)=>`<div class="srow">${cols.map(c=>`<input ${c==='n'?'style="flex:2"':'type="number" step="any" inputmode="decimal"'} value="${esc(m[c])}" onchange="eRow('${k}',${i},'${c}',this.value)">`).join('')}<button class="x" onclick="delRow('${k}',${i})">✕</button></div>`).join('')}
+function renderSettings(){
+ $('sMat').innerHTML=rows('materials',['n','d','r']);
+ $('sFin').innerHTML=rows('finishes',['n','f']);
+ $('sCpx').innerHTML=rows('complexity',['n','f']);
+ document.querySelectorAll('[data-k]').forEach(el=>el.value=S[el.dataset.k]);
+ $('logoPrev').hidden=!S.logo;if(S.logo)$('logoPrev').src=S.logo;
+}
+function eRow(k,i,f,v){S[k][i][f]=f==='n'?v:+v;save();fillAll();calc()}
+function delRow(k,i){if(S[k].length>1){S[k].splice(i,1);save();renderSettings();fillAll();calc()}}
+function addRow(k){S[k].push(k==='materials'?{n:"New",d:7850,r:30}:{n:"New",f:1});save();renderSettings();fillAll()}
+$('v-set').addEventListener('change',e=>{const k=e.target.dataset&&e.target.dataset.k;if(!k)return;
+ S[k]=e.target.type==='number'?+e.target.value:e.target.value;save();calc()});
+$('logoIn').onchange=async e=>{const f=e.target.files[0];if(!f)return;
+ const im=await loadImg(URL.createObjectURL(f));const s=Math.min(1,500/im.width,250/im.height);
+ const c=document.createElement('canvas');c.width=im.width*s;c.height=im.height*s;c.getContext('2d').drawImage(im,0,0,c.width,c.height);
+ S.logo=c.toDataURL('image/png');save();renderSettings()};
+
+/* settings / backup import-export */
+let impMode='';
+$('bExpSet').onclick=()=>saveFile('laserquote-settings.json',new Blob([JSON.stringify(S)],{type:'application/json'}));
+$('bExpAll').onclick=async()=>{const o={settings:S,clients:await dbAll('clients'),quotes:await dbAll('quotes')};
+ saveFile('laserquote-backup-'+new Date().toISOString().slice(0,10)+'.json',new Blob([JSON.stringify(o)],{type:'application/json'}))};
+$('bImpSet').onclick=()=>{impMode='set';$('impFile').click()};
+$('bImpAll').onclick=()=>{impMode='all';$('impFile').click()};
+$('impFile').onchange=async e=>{const f=e.target.files[0];if(!f)return;e.target.value='';
+ try{const o=JSON.parse(await f.text());
+  if(impMode==='set'){S=Object.assign(JSON.parse(JSON.stringify(DEF)),o.settings||o)}
+  else{S=Object.assign(JSON.parse(JSON.stringify(DEF)),o.settings||{});for(const c of o.clients||[])await dbPut('clients',c);for(const q of o.quotes||[])await dbPut('quotes',q);clients=await dbAll('clients');dl()}
+  save();renderSettings();fillAll();calc();alert('Imported.')}catch(err){alert('That file could not be read.')}};
+
+/* ================= tabs ================= */
+function tab(n){['quote','hist','set'].forEach(k=>{$('v-'+k).hidden=k!==n;$('t-'+k).classList.toggle('on',k===n)});
+ if(n==='hist')renderHist();if(n==='set')renderSettings();scrollTo(0,0)}
+
+/* ================= pricing ================= */
+let loops=null,cutLen=0,D={},openPct=0;
+function calc(){
+ const m=S.materials[$('mat').value]||S.materials[0],fi=S.finishes[$('fin').value]||S.finishes[0],cx=S.complexity[$('cpx').value]||S.complexity[0];
+ const t=+$('t').value||0,q=Math.max(1,+$('q').value||1),w=+$('w').value||0,h=+$('h').value||0,mg=+$('mg').value||0;
+ const net=$('basis').value==='net';$('openWrap').hidden=!net;
+ let area=(w/1000)*(h/1000);if(net)area*=1-(+$('open').value||0)/100;
+ const kg=area*(t/1000)*m.d,tot=kg*q,mc=tot*m.r,fc=mc*fi.f,cc=fc*cx.f;
+ const np=loops?loops.length:0,cutC=((loops?cutLen/1000:0)*S.cutRate+np*S.pierce)*q;
+ const base=cc+cutC,mgn=base*(1+mg/100),sub=Math.max(mgn,S.min),vatOn=$('vat').value==='1',vat=vatOn?sub*S.vat/100:0,total=sub+vat;
+ D={matN:m.n,finN:fi.n,cpxN:cx.n,kg,tot,mc,fc,cc,cutC,mgn,sub,vat,total,q,t,w,h,mg,net,vatOn};
+ $('result').innerHTML=`<table>
+ <tr><td>Weight per panel${net?' (net)':''}</td><td>${kg.toFixed(2)} kg</td></tr>
+ <tr><td>Total weight (×${q})</td><td>${tot.toFixed(2)} kg</td></tr>
+ <tr><td>Material @ ${R(m.r)}/kg</td><td>${R(mc)}</td></tr>
+ <tr><td>${esc(fi.n)} (×${fi.f})</td><td>${R(fc-mc)}</td></tr>
+ <tr><td>${esc(cx.n)} (×${cx.f})</td><td>${R(cc-fc)}</td></tr>
+ ${cutC>0?`<tr><td>Cut length / pierces</td><td>${R(cutC)}</td></tr>`:''}
+ <tr><td>Margin ${mg}%</td><td>${R(mgn-base)}</td></tr>
+ ${S.min>mgn?`<tr><td>Minimum charge applied</td><td>${R(S.min-mgn)}</td></tr>`:''}
+ <tr><td>Subtotal</td><td>${R(sub)}</td></tr>
+ <tr><td>VAT ${vatOn?S.vat+'%':''}</td><td>${R(vat)}</td></tr></table>
+ <div style="margin-top:8px">Total</div><div class="total">${R(total)}</div>
+ <div class="muted">Per panel: ${R(total/q)}${loops?` · traced: ${np} paths, ≈${(cutLen/1000).toFixed(2)} m cut per panel`:''}</div>`;
+ return D;
+}
+document.querySelectorAll('#v-quote input,#v-quote select').forEach(el=>el.addEventListener('input',calc));
+
+/* ================= photo + perspective picker ================= */
+const pickC=$('pick'),srcC=document.createElement('canvas');
+let corners=null,drag=-1,photoURL='',gray=null,base=null,metal=null,fw=0,fh=0,fdims={w:0,h:0};
+$('photo').onchange=async e=>{const f=e.target.files[0];if(!f)return;
+ const u=URL.createObjectURL(f);try{setPhoto(await loadImg(u))}finally{URL.revokeObjectURL(u)}};
+function setPhoto(im,url){
+ const sc=Math.min(1,1400/Math.max(im.width,im.height)),w=Math.round(im.width*sc),h=Math.round(im.height*sc);
+ srcC.width=pickC.width=w;srcC.height=pickC.height=h;srcC.getContext('2d').drawImage(im,0,0,w,h);
+ photoURL=url||srcC.toDataURL('image/jpeg',.8);
+ corners=[[.12,.12],[.88,.12],[.88,.88],[.12,.88]].map(p=>[p[0]*w,p[1]*h]);
+ gray=base=metal=null;loops=null;$('anal').hidden=true;
+ $('pickWrap').hidden=false;redrawPick();
+}
+function redrawPick(){
+ const c=pickC,x=c.getContext('2d'),k=c.width/(c.getBoundingClientRect().width||c.width);
+ x.drawImage(srcC,0,0);if(!corners)return;
+ x.lineWidth=3*k;x.strokeStyle='#ff2d2d';x.beginPath();
+ corners.forEach((p,i)=>i?x.lineTo(p[0],p[1]):x.moveTo(p[0],p[1]));x.closePath();x.stroke();
+ corners.forEach((p,i)=>{x.fillStyle='rgba(255,45,45,.35)';x.beginPath();x.arc(p[0],p[1],16*k,0,7);x.fill();x.stroke();
+  x.fillStyle='#fff';x.font=`bold ${16*k}px sans-serif`;x.textAlign='center';x.textBaseline='middle';x.fillText(i+1,p[0],p[1])});
+ if(drag>=0){
+  const p=corners[drag],Rr=75*k,z=3,cx=p[0]>c.width/2?Rr+10*k:c.width-Rr-10*k,cy=Rr+10*k;
+  x.save();x.beginPath();x.arc(cx,cy,Rr,0,7);x.clip();x.fillStyle='#000';x.fillRect(cx-Rr,cy-Rr,2*Rr,2*Rr);
+  x.drawImage(srcC,p[0]-Rr/z,p[1]-Rr/z,2*Rr/z,2*Rr/z,cx-Rr,cy-Rr,2*Rr,2*Rr);x.restore();
+  x.strokeStyle='#ff2d2d';x.lineWidth=2*k;x.beginPath();x.arc(cx,cy,Rr,0,7);x.moveTo(cx-Rr,cy);x.lineTo(cx+Rr,cy);x.moveTo(cx,cy-Rr);x.lineTo(cx,cy+Rr);x.stroke();
+ }
+}
+function ptr(e){const r=pickC.getBoundingClientRect();return[(e.clientX-r.left)*pickC.width/r.width,(e.clientY-r.top)*pickC.height/r.height]}
+pickC.addEventListener('pointerdown',e=>{if(!corners)return;e.preventDefault();
+ const[px,py]=ptr(e),lim=60*pickC.width/pickC.getBoundingClientRect().width;let b=-1,bd=1e9;
+ corners.forEach((c,i)=>{const d=Math.hypot(c[0]-px,c[1]-py);if(d<bd){bd=d;b=i}});
+ if(bd<lim){drag=b;pickC.setPointerCapture(e.pointerId);redrawPick()}});
+pickC.addEventListener('pointermove',e=>{if(drag<0)return;e.preventDefault();const[px,py]=ptr(e);
+ corners[drag]=[Math.min(pickC.width,Math.max(0,px)),Math.min(pickC.height,Math.max(0,py))];redrawPick()});
+['pointerup','pointercancel'].forEach(ev=>pickC.addEventListener(ev,()=>{drag=-1;redrawPick()}));
+
+/* ================= homography + flatten ================= */
+function homography(dst,src){ // maps dst -> src
+ const A=[];
+ for(let i=0;i<4;i++){const[x,y]=dst[i],[u,v]=src[i];
+  A.push([x,y,1,0,0,0,-u*x,-u*y,u]);A.push([0,0,0,x,y,1,-v*x,-v*y,v])}
+ for(let c=0;c<8;c++){let p=c;for(let r=c+1;r<8;r++)if(Math.abs(A[r][c])>Math.abs(A[p][c]))p=r;
+  [A[c],A[p]]=[A[p],A[c]];
+  for(let r=0;r<8;r++)if(r!==c){const f=A[r][c]/A[c][c];for(let k=c;k<9;k++)A[r][k]-=f*A[c][k]}}
+ return A.map((r,i)=>r[8]/r[i]);
+}
+function doFlatten(keep){
+ if(!corners)return;
+ const Wm=+$('w').value,Hm=+$('h').value;
+ if(!(Wm>0&&Hm>0)){alert('Enter the panel width and height first.');return}
+ const sc=900/Math.max(Wm,Hm),ow=Math.max(20,Math.round(Wm*sc)),oh=Math.max(20,Math.round(Hm*sc));
+ const Hh=homography([[0,0],[ow,0],[ow,oh],[0,oh]],corners);
+ const sw=srcC.width,sh=srcC.height,sd=srcC.getContext('2d').getImageData(0,0,sw,sh).data;
+ const fc=$('flat');fc.width=ow;fc.height=oh;const fx=fc.getContext('2d'),out=fx.createImageData(ow,oh),od=out.data;
+ gray=new Uint8ClampedArray(ow*oh);fw=ow;fh=oh;fdims={w:Wm,h:Hm};
+ for(let y=0;y<oh;y++)for(let x=0;x<ow;x++){
+  const X=x+.5,Y=y+.5,d=Hh[6]*X+Hh[7]*Y+1;
+  let u=(Hh[0]*X+Hh[1]*Y+Hh[2])/d-.5,v=(Hh[3]*X+Hh[4]*Y+Hh[5])/d-.5;
+  u=Math.min(sw-1.001,Math.max(0,u));v=Math.min(sh-1.001,Math.max(0,v));
+  const x0=u|0,y0=v|0,fx_=u-x0,fy_=v-y0,i0=(y0*sw+x0)*4,i1=i0+sw*4,o=(y*ow+x)*4,ch=[];
+  for(let c=0;c<3;c++){ch[c]=(sd[i0+c]*(1-fx_)+sd[i0+4+c]*fx_)*(1-fy_)+(sd[i1+c]*(1-fx_)+sd[i1+4+c]*fx_)*fy_;od[o+c]=ch[c]}
+  od[o+3]=255;gray[y*ow+x]=.299*ch[0]+.587*ch[1]+.114*ch[2];
+ }
+ fx.putImageData(out,0,0);
+ $('mask').width=ow;$('mask').height=oh;
+ $('anal').hidden=false;prep(keep);updateMask();
+ $('anal').scrollIntoView({behavior:'smooth'});
+}
+$('btnFlat').onclick=()=>doFlatten(false);
+['w','h'].forEach(id=>$(id).addEventListener('change',()=>{if(corners&&gray)doFlatten(true)}));
+
+/* ================= threshold / mask ================= */
+function prep(keep){
+ const w=fw,h=fh,n=w*h,W1=w+1,ig=new Float64Array(W1*(h+1));
+ for(let y=0;y<h;y++){let row=0;for(let x=0;x<w;x++){row+=gray[y*w+x];ig[(y+1)*W1+x+1]=ig[y*W1+x+1]+row}}
+ const bx=(x,y,r)=>{const x0=Math.max(0,x-r),x1=Math.min(w,x+r+1),y0=Math.max(0,y-r),y1=Math.min(h,y+r+1);
+  return(ig[y1*W1+x1]-ig[y0*W1+x1]-ig[y1*W1+x0]+ig[y0*W1+x0])/((x1-x0)*(y1-y0))};
+ let gm=0;for(let i=0;i<n;i++)gm+=gray[i];gm/=n;
+ const sh=$('shade').checked,RR=Math.round(Math.max(w,h)/6);
+ base=new Uint8ClampedArray(n);
+ for(let y=0;y<h;y++)for(let x=0;x<w;x++){let v=bx(x,y,1);if(sh)v=v-bx(x,y,RR)+gm;base[y*w+x]=v}
+ if(!keep){ // Otsu
+  const hist=new Array(256).fill(0);for(let i=0;i<n;i++)hist[base[i]]++;
+  let sum=0;for(let t=0;t<256;t++)sum+=t*hist[t];
+  let sB=0,wB=0,best=0,thr=128;
+  for(let t=0;t<256;t++){wB+=hist[t];if(!wB)continue;const wF=n-wB;if(!wF)break;sB+=t*hist[t];
+   const mB=sB/wB,mF=(sum-sB)/wF,v=wB*wF*(mB-mF)*(mB-mF);if(v>best){best=v;thr=t}}
+  $('thr').value=thr;
+ }
+}
+function updateMask(){
+ if(!base)return;
+ const T=+$('thr').value,md=$('metalDark').value==='1',n=fw*fh;$('thrV').textContent=T;
+ metal=new Uint8Array(n);let m=0;
+ const mx=$('mask').getContext('2d'),im=mx.createImageData(fw,fh),d=im.data;
+ for(let i=0;i<n;i++){const isM=(base[i]<T)===md;metal[i]=isM?1:0;if(isM)m++;const v=isM?50:245;d[i*4]=d[i*4+1]=d[i*4+2]=v;d[i*4+3]=255}
+ mx.putImageData(im,0,0);
+ openPct=100*(1-m/n);loops=null;cutLen=0;
+ $('openOut').innerHTML=`Open area: <b>${openPct.toFixed(1)}%</b> of the panel rectangle`;
+ $('traceOut').textContent='Not traced yet';
+ calc();
+}
+$('thr').addEventListener('input',updateMask);
+$('metalDark').addEventListener('change',updateMask);
+$('shade').addEventListener('change',()=>{if(gray){prep(false);updateMask()}});
+$('btnUse').onclick=()=>{$('basis').value='net';$('open').value=openPct.toFixed(1);calc();$('result').scrollIntoView({behavior:'smooth'})};
+
+/* ================= tracing (marching squares) ================= */
+const TAB=[null,[3,2],[2,1],[3,1],[1,0],[1,0,3,2],[2,0],[3,0],[0,3],[0,2],[0,3,2,1],[0,1],[1,3],[1,2],[2,3],null];
+function dp(p,eps){
+ const n=p.length,keep=new Uint8Array(n);keep[0]=keep[n-1]=1;const st=[[0,n-1]];
+ while(st.length){const[a,b]=st.pop();let mx=0,mi=-1;const ax=p[a][0],ay=p[a][1],dx=p[b][0]-ax,dy=p[b][1]-ay,l=Math.hypot(dx,dy)||1e-9;
+  for(let i=a+1;i<b;i++){const d=Math.abs((p[i][0]-ax)*dy-(p[i][1]-ay)*dx)/l;if(d>mx){mx=d;mi=i}}
+  if(mx>eps){keep[mi]=1;st.push([a,mi],[mi,b])}}
+ return p.filter((_,i)=>keep[i]);
+}
+function dpClosed(p,eps){
+ let m=0,md=0;for(let i=1;i<p.length;i++){const d=Math.hypot(p[i][0]-p[0][0],p[i][1]-p[0][1]);if(d>md){md=d;m=i}}
+ if(m===0)return p;
+ const A=dp(p.slice(0,m+1),eps),B=dp(p.slice(m).concat([p[0]]),eps);
+ return A.slice(0,-1).concat(B.slice(0,-1));
+}
+function trace(){
+ if(!metal)return false;
+ const w=fw,h=fh,W2=w+2,K=2*W2+4,P=new Uint8Array(W2*(h+2));
+ for(let y=0;y<h;y++)for(let x=0;x<w;x++)P[(y+1)*W2+x+1]=metal[y*w+x];
+ const ek=(x,y,e)=>e===0?(2*y)*K+2*x+1:e===1?(2*y+1)*K+2*x+2:e===2?(2*y+2)*K+2*x+1:(2*y+1)*K+2*x;
+ const segs=new Map();
+ for(let y=0;y<=h;y++)for(let x=0;x<=w;x++){
+  const cs=P[y*W2+x]*8+P[y*W2+x+1]*4+P[(y+1)*W2+x+1]*2+P[(y+1)*W2+x];
+  const t=TAB[cs];if(!t)continue;
+  for(let i=0;i<t.length;i+=2)segs.set(ek(x,y,t[i]),ek(x,y,t[i+1]));
+ }
+ const mx=fdims.w/w,my=fdims.h/h,minPx=(+$('minA').value||0)/(mx*my),out=[];let total=0;
+ for(const s0 of Array.from(segs.keys())){
+  if(!segs.has(s0))continue;
+  const pts=[];let k=s0;
+  while(segs.has(k)){const kx=k%K,ky=(k-kx)/K;pts.push([kx/2-.5,ky/2-.5]);const nk=segs.get(k);segs.delete(k);k=nk;if(k===s0)break}
+  if(pts.length<4)continue;
+  let a=0;for(let i=0;i<pts.length;i++){const p=pts[i],q=pts[(i+1)%pts.length];a+=p[0]*q[1]-q[0]*p[1]}
+  if(Math.abs(a)/2<minPx)continue;
+  const s=dpClosed(pts,1);if(s.length<3)continue;
+  const L=s.map(p=>[Math.round(Math.min(w,Math.max(0,p[0]))*mx*100)/100,Math.round(Math.min(h,Math.max(0,p[1]))*my*100)/100]);
+  for(let i=0;i<L.length;i++){const p=L[i],q=L[(i+1)%L.length];total+=Math.hypot(p[0]-q[0],p[1]-q[1])}
+  out.push(L);
+ }
+ loops=out;cutLen=total;
+ $('traceOut').textContent=`${loops.length} cut paths (pierces) · ≈${(cutLen/1000).toFixed(2)} m of cut per panel`;
+ calc();return true;
+}
+$('btnTrace').onclick=()=>{$('traceOut').textContent='Tracing…';setTimeout(trace,30)};
+const ensure=()=>{if(!loops&&!trace()){alert('Add a photo, set the corners and tap "Flatten photo & measure" first.');return false}return true};
+
+/* ================= SVG / DXF ================= */
+const fname=()=>safeName((curNo||'quote')+' '+($('client').value||''));
+$('btnSVG').onclick=async()=>{if(!ensure())return;
+ const d=loops.map(l=>'M'+l.map(p=>p[0]+' '+p[1]).join('L')+'Z').join('');
+ const svg=`<svg xmlns="http://www.w3.org/2000/svg" width="${fdims.w}mm" height="${fdims.h}mm" viewBox="0 0 ${fdims.w} ${fdims.h}"><path d="${d}" fill="none" stroke="#000" stroke-width="0.2"/></svg>`;
+ await saveFile(fname()+'.svg',new Blob([svg],{type:'image/svg+xml'}))};
+$('btnDXF').onclick=async()=>{if(!ensure())return;
+ let s='0\nSECTION\n2\nENTITIES\n';
+ for(const l of loops){s+='0\nPOLYLINE\n8\nCUT\n66\n1\n70\n1\n';
+  for(const p of l)s+=`0\nVERTEX\n8\nCUT\n10\n${p[0]}\n20\n${(fdims.h-p[1]).toFixed(2)}\n30\n0\n`;
+  s+='0\nSEQEND\n8\nCUT\n'}
+ s+='0\nENDSEC\n0\nEOF\n';
+ await saveFile(fname()+'.dxf',new Blob([s],{type:'application/dxf'}))};
+
+/* ================= PDF ================= */
+function wrap(x,text,px,py,maxW,lh){
+ for(const para of String(text).split('\n')){let line='';
+  for(const word of para.split(' ')){const t=line?line+' '+word:word;
+   if(x.measureText(t).width>maxW&&line){x.fillText(line,px,py);py+=lh;line=word}else line=t}
+  x.fillText(line,px,py);py+=lh}
+ return py;
+}
+function fit(x,im,bx,by,bw,bh){const s=Math.min(bw/im.width,bh/im.height),w=im.width*s,h=im.height*s;
+ x.drawImage(im,bx+(bw-w)/2,by+(bh-h)/2,w,h);x.strokeStyle='#ccc';x.lineWidth=2;x.strokeRect(bx,by,bw,bh)}
+async function quoteCanvas(q){
+ const W=1240,H=1754,M=80,F='Helvetica,Arial,sans-serif',RED='#c8102e',c=document.createElement('canvas');
+ c.width=W;c.height=H;const x=c.getContext('2d');x.fillStyle='#fff';x.fillRect(0,0,W,H);x.textBaseline='top';x.textAlign='left';
+ let y=M,ly=M;
+ if(S.logo){try{const im=await loadImg(S.logo),s=Math.min(360/im.width,150/im.height);x.drawImage(im,M,ly,im.width*s,im.height*s);ly+=im.height*s+14}catch(e){}}
+ x.fillStyle='#111';x.font=`bold 38px ${F}`;x.fillText(S.biz,M,ly);ly+=50;
+ x.font=`22px ${F}`;x.fillStyle='#444';
+ (S.addr+(S.vatNo?'\nVAT no: '+S.vatNo:'')).split('\n').filter(Boolean).forEach(l=>{x.fillText(l,M,ly);ly+=30});
+ const f=d=>d.toLocaleDateString('en-ZA');
+ x.textAlign='right';x.fillStyle=RED;x.font=`bold 56px ${F}`;x.fillText('QUOTATION',W-M,y);
+ x.fillStyle='#111';x.font=`26px ${F}`;
+ x.fillText(q.number,W-M,y+76);x.fillText('Date: '+f(new Date(q.date)),W-M,y+112);
+ x.fillText('Valid until: '+f(new Date(q.date+S.validity*864e5)),W-M,y+148);x.textAlign='left';
+ y=Math.max(ly,y+190)+20;x.fillStyle='#ddd';x.fillRect(M,y,W-2*M,3);y+=24;
+ x.fillStyle='#777';x.font=`22px ${F}`;x.fillText('PREPARED FOR',M,y);y+=30;
+ x.fillStyle='#111';x.font=`bold 32px ${F}`;x.fillText(q.client.name||'-',M,y);y+=44;
+ x.font=`24px ${F}`;x.fillStyle='#444';
+ [q.client.phone,q.client.email].filter(Boolean).forEach(l=>{x.fillText(l,M,y);y+=32});
+ y+=20;
+ const bh=440,showPrev=q.incPrev&&gray,bw=showPrev?(W-2*M-30)/2:W-2*M;
+ if(photoURL){try{fit(x,await loadImg(photoURL),M,y,bw,bh)}catch(e){}}
+ if(showPrev)fit(x,$('mask'),M+bw+30,y,bw,bh);
+ x.fillStyle='#777';x.font=`20px ${F}`;x.fillText('Reference photo',M,y+bh+8);
+ if(showPrev)x.fillText('Indicative cut preview (not final artwork)',M+bw+30,y+bh+8);
+ y+=bh+50;
+ const d=q.calc,rowsA=[['Material',d.matN],['Thickness',d.t+' mm'],['Panel size',d.w+' × '+d.h+' mm'],['Quantity',String(d.q)],['Finish',d.finN],['Approx. total weight',d.tot.toFixed(1)+' kg']];
+ rowsA.forEach((r,i)=>{if(i%2===0){x.fillStyle='#f4f4f4';x.fillRect(M,y,W-2*M,50)}
+  x.fillStyle='#111';x.font=`26px ${F}`;x.fillText(r[0],M+16,y+10);x.textAlign='right';x.fillText(r[1],W-M-16,y+10);x.textAlign='left';y+=50});
+ y+=20;
+ const tot=[['Price per panel (excl. VAT)',R(d.sub/d.q)],['Subtotal (excl. VAT)',R(d.sub)],['VAT'+(d.vatOn?' '+S.vat+'%':''),R(d.vat)]];
+ tot.forEach(r=>{x.font=`26px ${F}`;x.fillStyle='#111';x.fillText(r[0],M+16,y);x.textAlign='right';x.fillText(r[1],W-M-16,y);x.textAlign='left';y+=42});
+ x.fillStyle=RED;x.fillRect(M,y+4,W-2*M,3);y+=22;
+ x.font=`bold 40px ${F}`;x.fillStyle=RED;x.fillText('TOTAL',M+16,y);x.textAlign='right';x.fillText(R(d.total),W-M-16,y);x.textAlign='left';y+=80;
+ x.fillStyle='#444';x.font=`22px ${F}`;
+ if(S.terms)y=wrap(x,S.terms,M,y,W-2*M,30)+14;
+ if(S.bank){x.font=`bold 22px ${F}`;x.fillText('Banking details',M,y);y+=30;x.font=`22px ${F}`;wrap(x,S.bank,M,y,W-2*M,30)}
+ return c;
+}
+async function makePDF(canvas){
+ const blob=await new Promise(r=>canvas.toBlob(r,'image/jpeg',.85)),jpg=new Uint8Array(await blob.arrayBuffer());
+ const enc=new TextEncoder(),parts=[],offs=[];let off=0;
+ const add=b=>{if(typeof b==='string')b=enc.encode(b);parts.push(b);off+=b.length};
+ const obj=(n,body)=>{offs[n]=off;add(`${n} 0 obj\n${body}\nendobj\n`)};
+ add('%PDF-1.4\n');
+ obj(1,'<</Type/Catalog/Pages 2 0 R>>');obj(2,'<</Type/Pages/Kids[3 0 R]/Count 1>>');
+ obj(3,'<</Type/Page/Parent 2 0 R/MediaBox[0 0 595.28 841.89]/Resources<</XObject<</Im0 4 0 R>>>>/Contents 5 0 R>>');
+ offs[4]=off;add(`4 0 obj\n<</Type/XObject/Subtype/Image/Width ${canvas.width}/Height ${canvas.height}/ColorSpace/DeviceRGB/BitsPerComponent 8/Filter/DCTDecode/Length ${jpg.length}>>\nstream\n`);
+ add(jpg);add('\nendstream\nendobj\n');
+ const cs='q 595.28 0 0 841.89 0 0 cm /Im0 Do Q';
+ obj(5,`<</Length ${cs.length}>>\nstream\n${cs}\nendstream`);
+ const xo=off;let xr='xref\n0 6\n0000000000 65535 f \n';
+ for(let i=1;i<=5;i++)xr+=String(offs[i]).padStart(10,'0')+' 00000 n \n';
+ add(xr+`trailer\n<</Size 6/Root 1 0 R>>\nstartxref\n${xo}\n%%EOF`);
+ return new Blob(parts,{type:'application/pdf'});
+}
+$('btnPDF').onclick=async()=>{const q=await saveQuote();const pdf=await makePDF(await quoteCanvas(q));
+ await saveFile(safeName(q.number+' '+q.client.name)+'.pdf',pdf)};
+
+/* ================= clients / save / history ================= */
+let curId=null,curNo=null;
+function dl(){$('cl').innerHTML=clients.map(c=>`<option value="${esc(c.name)}">`).join('')}
+$('client').addEventListener('change',()=>{
+ const c=clients.find(c=>c.key===$('client').value.trim().toLowerCase());if(!c)return;
+ if(!$('phone').value)$('phone').value=c.phone||'';if(!$('email').value)$('email').value=c.email||'';
+ if(c.margin!=null)$('mg').value=c.margin;calc()});
+async function saveQuote(asNew){
+ const d=calc();
+ if(asNew){curId=null;curNo=null}
+ if(!curId)curId='q'+Date.now().toString(36)+Math.random().toString(36).slice(2,5);
+ if(!curNo){curNo=S.prefix+String(S.next).padStart(4,'0');S.next++;save()}
+ const name=$('client').value.trim();
+ const q={id:curId,number:curNo,date:Date.now(),client:{name,phone:$('phone').value,email:$('email').value},
+  inputs:{w:d.w,h:d.h,t:d.t,q:d.q,basis:$('basis').value,open:+$('open').value,mg:d.mg,vat:$('vat').value},
+  matN:d.matN,finN:d.finN,cpxN:d.cpxN,calc:d,photo:photoURL,
+  corners:corners?corners.map(c=>[c[0]/srcC.width,c[1]/srcC.height]):null,
+  thr:gray?+$('thr').value:null,md:$('metalDark').value,shade:$('shade').checked,minA:$('minA').value,incPrev:$('incPrev').checked,
+  loops:loops,cutLen:cutLen,fdims:fdims,openPct:openPct};
+ await dbPut('quotes',q);
+ if(name){const c={key:name.toLowerCase(),name,phone:q.client.phone,email:q.client.email,margin:d.mg};await dbPut('clients',c);
+  clients=await dbAll('clients');dl()}
+ $('qno').textContent='Quote '+curNo+' (saved)';
+ return q;
+}
+$('btnSave').onclick=async()=>{await saveQuote();alert('Saved.')};
+$('btnSaveNew').onclick=async()=>{await saveQuote(true);alert('Saved as '+curNo)};
+async function renderHist(){
+ const qs=(await dbAll('quotes')).sort((a,b)=>b.date-a.date),f=$('hq').value.toLowerCase();
+ $('hlist').innerHTML=qs.filter(q=>!f||(q.client.name+' '+q.number).toLowerCase().includes(f)).map(q=>
+  `<div class="card"><div style="display:flex;justify-content:space-between"><b>${esc(q.number)}</b><b>${R(q.calc.total)}</b></div>
+  <div>${esc(q.client.name||'(no name)')}</div>
+  <div class="muted">${new Date(q.date).toLocaleDateString('en-ZA')} · ${esc(q.matN)} ${q.inputs.t} mm · ${q.inputs.w}×${q.inputs.h} ×${q.inputs.q}</div>
+  <button class="sec" onclick="openQ('${q.id}')">Open</button> <button class="sec" onclick="delQ('${q.id}')">Delete</button></div>`).join('')
+  ||'<p class="muted">No quotes yet.</p>';
+}
+$('hq').addEventListener('input',renderHist);
+async function delQ(id){if(confirm('Delete this quote?')){await dbDel('quotes',id);renderHist()}}
+async function openQ(id){await loadQuote(await dbGet('quotes',id));tab('quote')}
+function selByName(sel,arr,n){const i=arr.findIndex(a=>a.n===n);sel.value=i<0?0:i}
+function resetQuote(){
+ curId=null;curNo=null;['client','phone','email'].forEach(i=>$(i).value='');$('photo').value='';
+ corners=null;gray=base=metal=null;loops=null;cutLen=0;photoURL='';$('pickWrap').hidden=true;$('anal').hidden=true;
+ $('qno').textContent='New quote';$('basis').value='gross';$('thr').value=128;$('shade').checked=false;calc();
+}
+async function loadQuote(q){
+ resetQuote();curId=q.id;curNo=q.number;
+ $('client').value=q.client.name;$('phone').value=q.client.phone||'';$('email').value=q.client.email||'';
+ const i=q.inputs;$('w').value=i.w;$('h').value=i.h;$('t').value=i.t;$('q').value=i.q;$('basis').value=i.basis;$('open').value=i.open;$('mg').value=i.mg;$('vat').value=i.vat;
+ selByName($('mat'),S.materials,q.matN);selByName($('fin'),S.finishes,q.finN);selByName($('cpx'),S.complexity,q.cpxN);
+ $('qno').textContent='Quote '+q.number;
+ if(q.photo){setPhoto(await loadImg(q.photo),q.photo);
+  if(q.corners){corners=q.corners.map(c=>[c[0]*srcC.width,c[1]*srcC.height]);redrawPick();
+   if(q.thr!=null){$('shade').checked=q.shade;$('metalDark').value=q.md;$('minA').value=q.minA;$('incPrev').checked=q.incPrev;
+    doFlatten(true);$('thr').value=q.thr;updateMask()}}}
+ if(q.loops){loops=q.loops;cutLen=q.cutLen;fdims=q.fdims||fdims;$('traceOut').textContent=`${loops.length} cut paths · ≈${(cutLen/1000).toFixed(2)} m of cut per panel`}
+ calc();
+}
+$('newBtn').onclick=()=>{resetQuote();tab('quote')};
+
+/* ================= start ================= */
+(function(){const c=document.createElement('canvas');c.width=c.height=180;const x=c.getContext('2d');
+ x.fillStyle='#c8102e';x.fillRect(0,0,180,180);x.fillStyle='#fff';x.font='bold 90px Helvetica';x.textAlign='center';x.textBaseline='middle';x.fillText('LQ',90,95);
+ $('icon').href=c.toDataURL()})();
+if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});
+(async()=>{try{await openDB();clients=await dbAll('clients');dl()}catch(e){alert('Saving quotes is not available in this browser mode.')}
+ fillAll();calc()})();
+</script></body></html>
