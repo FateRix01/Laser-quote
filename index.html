@@ -47,6 +47,11 @@ canvas{display:block;width:100%;height:auto;border-radius:8px;margin-top:6px}
 .wbox ul{margin:6px 0 0;padding-left:18px}
 select.st{width:auto;padding:5px 8px;font-size:14px;font-weight:600;margin-top:6px}
 .exrow{margin-bottom:10px}
+.itrow{display:flex;justify-content:space-between;gap:8px;padding:10px;border:1px solid #ddd;border-radius:8px;margin-bottom:6px;background:#fff}
+.itrow.on{border-color:#c8102e;background:#fff5f6}
+.lnk{display:inline-block;padding:4px 10px;border:1px solid #c8102e;border-radius:6px;font-size:13px;text-decoration:none;color:#c8102e;background:#fff}
+.fur{border-top:1px solid #eee;padding:8px 0}
+.btnrow{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px}
 nav{position:fixed;bottom:0;left:0;right:0;background:#fff;border-top:1px solid #ddd;display:flex;padding-bottom:env(safe-area-inset-bottom);z-index:6}
 nav button{flex:1;padding:14px 0;border:0;background:none;font-size:15px;color:#777;font-weight:600}
 nav button.on{color:#c8102e}
@@ -69,10 +74,28 @@ nav button.on{color:#c8102e}
   </div>
   <label>Client address (optional)</label><textarea id="addr" rows="2"></textarea>
   <label>Client VAT number (optional)</label><input id="cvat">
+  <div class="row">
+   <div><label>Margin % (this client, whole quote)</label><input id="mg" type="text" inputmode="decimal" value="20"></div>
+   <div><label>Add VAT?</label><select id="vat"><option value="1">Yes</option><option value="0">No</option></select></div>
+  </div>
  </div>
 
+ <div class="card" id="itemsCard">
+  <b>Items in this quote</b>
+  <div class="muted">Add a separate item for each different panel (own size, material, finish, photo or DXF). Tap an item to edit it.</div>
+  <div id="itemList"></div>
+  <div class="btnrow">
+   <button class="sm" onclick="addItem()">+ Add item</button>
+   <button class="sm" onclick="dupItem()">Duplicate this item</button>
+   <button class="sm" onclick="delItem()">Remove this item</button>
+  </div>
+ </div>
+ <div id="edTop"></div>
+
  <div class="card">
+  <div id="edLine" class="warn" hidden></div>
   <b>1. Panel &amp; design (photo or DXF)</b>
+  <label>Item name (optional)</label><input id="iname" placeholder="e.g. Lounge panel">
   <div class="row">
    <div><label>Panel width (mm)</label><input id="w" type="text" inputmode="decimal" value="1200"></div>
    <div><label>Panel height (mm)</label><input id="h" type="text" inputmode="decimal" value="600"></div>
@@ -120,7 +143,7 @@ nav button.on{color:#c8102e}
  </div>
 
  <div class="card">
-  <b>3. Pricing</b>
+  <b>3. Pricing (this item)</b>
   <label>Material</label><select id="mat"></select>
   <div class="row">
    <div><label>Thickness (mm)</label><input id="t" type="text" inputmode="decimal" value="3"></div>
@@ -145,16 +168,12 @@ nav button.on{color:#c8102e}
   <div id="sheetInfo" class="sheetbox"></div>
   <label>Finish</label><select id="fin"></select>
   <label>Design complexity</label><select id="cpx"></select>
-  <div class="row">
-   <div><label>Margin % (this client)</label><input id="mg" type="text" inputmode="decimal" value="20"></div>
-   <div><label>Add VAT?</label><select id="vat"><option value="1">Yes</option><option value="0">No</option></select></div>
-  </div>
  </div>
 
  <div class="card" id="result"></div>
 
  <div class="card" id="pricecard">
-  <b>4. Price to charge</b>
+  <b>4. Price to charge (this item)</b>
   <div class="muted" id="calcNote"></div>
   <label>Price to charge (before VAT) – type your own price</label>
   <input id="price" type="text" inputmode="decimal">
@@ -163,16 +182,10 @@ nav button.on{color:#c8102e}
  </div>
 
  <div class="card">
-  <b>5. Extra lines (optional)</b>
-  <div class="muted">Delivery, installation, design fee or a discount. They are added to the quote before VAT.</div>
+  <b>5. Extra lines (whole quote, optional)</b>
+  <div class="muted">Delivery, installation, design fee or a discount. They are added to the quote before VAT. Set your usual amounts in Settings → Extra-line presets.</div>
   <div id="exList"></div>
-  <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">
-   <button class="sm" onclick="exAdd('Delivery')">+ Delivery</button>
-   <button class="sm" onclick="exAdd('Installation')">+ Installation</button>
-   <button class="sm" onclick="exAdd('Design fee')">+ Design fee</button>
-   <button class="sm" onclick="exAdd('Discount',true)">+ Discount</button>
-   <button class="sm" onclick="exAdd('')">+ Other</button>
-  </div>
+  <div id="exBtns" style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px"></div>
  </div>
 
  <div class="card" id="totals"></div>
@@ -190,16 +203,18 @@ nav button.on{color:#c8102e}
  <div class="card wbox" id="warns" hidden></div>
 
  <button class="main" id="btnPDF">Create PDF quote (save &amp; share)</button>
+ <button class="sec" id="btnJob" style="width:100%">Create job card PDF (no prices)</button>
  <button class="sec" id="btnSave" style="width:100%">Save quote</button>
  <button class="sec" id="btnSaveNew" style="width:100%">Save as new quote (copy)</button>
  <div class="row">
-  <div><button class="sec" id="btnSVG" style="width:100%">Export SVG</button></div>
-  <div><button class="sec" id="btnDXF" style="width:100%">Export DXF</button></div>
+  <div><button class="sec" id="btnSVG" style="width:100%">Export SVG (this item)</button></div>
+  <div><button class="sec" id="btnDXF" style="width:100%">Export DXF (this item)</button></div>
  </div>
 </section>
 
 <!-- ============ HISTORY ============ -->
 <section id="v-hist" hidden>
+ <div class="card" id="fuBox" hidden></div>
  <div class="card"><input id="hq" placeholder="Search client, phone or quote number">
   <label>Show</label><select id="hs"></select>
   <div id="hsum" class="muted"></div></div>
@@ -217,9 +232,10 @@ nav button.on{color:#c8102e}
  </div>
  <div class="card"><b>Finishes</b><div class="muted">name · cost factor (1.25 = +25%)</div><div id="sFin"></div><button class="sec" onclick="addRow('finishes')">+ Add</button></div>
  <div class="card"><b>Complexity</b><div class="muted">name · cost factor</div><div id="sCpx"></div><button class="sec" onclick="addRow('complexity')">+ Add</button></div>
+ <div class="card"><b>Extra-line presets</b><div class="muted">name · Charge or Discount · default amount (R). They show as quick-add buttons on the quote.</div><div id="sPre"></div><button class="sec" onclick="addPre()">+ Add</button></div>
  <div class="card"><b>Pricing rules</b>
   <label>VAT %</label><input data-k="vat" type="text" inputmode="decimal">
-  <label>Minimum charge (R, before VAT)</label><input data-k="min" type="text" inputmode="decimal">
+  <label>Minimum charge per item (R, before VAT)</label><input data-k="min" type="text" inputmode="decimal">
   <label>Cut rate (R per metre of cut, 0 = off)</label><input data-k="cutRate" type="text" inputmode="decimal">
   <label>Pierce cost (R per pierce, 0 = off)</label><input data-k="pierce" type="text" inputmode="decimal">
   <div class="muted">Cut rate / pierce cost use the traced outline or DXF. Don't double-charge with the complexity factor.</div>
@@ -227,6 +243,7 @@ nav button.on{color:#c8102e}
   <select data-k="round"><option value="0">No rounding</option><option value="10">R10</option><option value="50">R50</option><option value="100">R100</option></select>
   <label>Default deposit % on PDF (0 = none)</label><input data-k="dep" type="text" inputmode="decimal">
   <label>Default lead time text</label><input data-k="lead" placeholder="e.g. 7–10 working days">
+  <label>Follow up "Sent" quotes after (days)</label><input data-k="fuDays" type="text" inputmode="numeric">
  </div>
  <div class="card"><b>Business &amp; quote</b>
   <label>Business name</label><input data-k="biz">
@@ -249,7 +266,7 @@ nav button.on{color:#c8102e}
   <button class="sec" id="bExpAll" style="width:100%">Backup everything (settings, clients, quotes)</button>
   <button class="sec" id="bImpAll" style="width:100%">Restore backup</button>
   <input type="file" id="impFile" accept=".json,application/json" hidden>
-  <div class="muted">App version 5 (your price, extras, status, profit, warnings)</div>
+  <div class="muted">App version 6 (multiple items, follow-ups, extra-line presets, job card)</div>
  </div>
 </section>
 </main>
@@ -267,8 +284,9 @@ const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;',
 const R=n=>"R "+n.toLocaleString('en-ZA',{minimumFractionDigits:2,maximumFractionDigits:2});
 // number parser: accepts 1.6 and 1,6
 const N=v=>{const x=parseFloat(String(v==null?'':v).replace(/\s/g,'').replace(',','.'));return isFinite(x)?x:0};
-const NUMK=['vat','min','cutRate','pierce','validity','next','gap','edge','round','dep'];
+const NUMK=['vat','min','cutRate','pierce','validity','next','gap','edge','round','dep','fuDays'];
 const r1=v=>String(Math.round(v*10)/10);
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));
 const loadImg=src=>new Promise((res,rej)=>{const i=new Image();i.onload=()=>res(i);i.onerror=rej;i.src=src});
 const STAT=['Draft','Sent','Accepted','Rejected','Invoiced'],SCOL={Draft:'#777',Sent:'#0a58ca',Accepted:'#1a7f37',Rejected:'#c8102e',Invoiced:'#6f42c1'};
 const DEF={
@@ -277,7 +295,8 @@ const DEF={
  gap:5,edge:10,
  finishes:[{n:"None (raw)",f:1},{n:"Powder coat",f:1.25},{n:"Painted",f:1.2},{n:"Galvanised",f:1.3},{n:"Brushed / polished",f:1.4}],
  complexity:[{n:"Simple",f:1},{n:"Medium",f:1.15},{n:"Complex",f:1.3}],
- vat:15,min:0,cutRate:0,pierce:0,validity:7,prefix:"Q-",next:1,round:0,dep:50,lead:"",
+ presets:[{n:"Delivery",a:0,neg:false},{n:"Installation",a:0,neg:false},{n:"Design fee",a:0,neg:false},{n:"Discount",a:0,neg:true}],
+ vat:15,min:0,cutRate:0,pierce:0,validity:7,prefix:"Q-",next:1,round:0,dep:50,lead:"",fuDays:3,
  biz:"My Laser Workshop",addr:"",vatNo:"",bank:"",terms:"Quote valid for the period shown. 50% deposit required. Final price subject to approved design.",logo:""
 };
 let S;
@@ -285,6 +304,13 @@ try{S=Object.assign(JSON.parse(JSON.stringify(DEF)),JSON.parse(localStorage.getI
 const save=()=>localStorage.setItem('lq2',JSON.stringify(S));
 $('status').innerHTML=STAT.map(s=>`<option>${s}</option>`).join('');
 $('hs').innerHTML='<option value="all">All quotes</option><option value="open">Open (Draft + Sent)</option>'+STAT.map(s=>`<option>${s}</option>`).join('');
+
+/* ================= items ================= */
+function newItem(o){return Object.assign({name:'',w:'1200',h:'600',t:'3',q:'1',mat:S.materials[0].n,fin:S.finishes[0].n,cpx:S.complexity[0].n,basis:'gross',open:'30',sheet:S.sheets[0].n,gap:String(S.gap),edge:String(S.edge),rnd:String(S.round),
+ pm:false,pv:'',priceVal:null,src:'photo',photo:'',corners:null,thr:null,md:'1',shade:false,minA:'4',incPrev:true,incPrev2:true,
+ loops:null,cutLen:0,fdims:{w:0,h:0},openPct:0,dxfName:'',prev:null,calc:null},o||{})}
+let items=[newItem()],cur=0,loading=false,loadSeq=0;
+const lbl=(it,i)=>(it.name&&String(it.name).trim())||('Item '+(i+1));
 
 /* ================= IndexedDB ================= */
 let db,clients=[];
@@ -308,7 +334,7 @@ async function saveFile(name,blob){
 }
 const safeName=s=>s.replace(/[^\w\- ]/g,'').trim()||'quote';
 
-/* ================= backup reminder ================= */
+/* ================= backup reminder + follow-up badge ================= */
 async function bk(){
  const last=+localStorage.getItem('lqBk')||0;let n=0;
  try{n=(await dbAll('quotes')).length}catch(e){}
@@ -317,18 +343,23 @@ async function bk(){
  $('bk').hidden=!show;
  if(show)$('bkT').textContent=last?`Last backup: ${days} days ago. Back up your quotes now.`:'You have not backed up yet. Back up your quotes now.';
  $('bkSet').textContent=last?'Last backup: '+new Date(last).toLocaleDateString('en-ZA'):'Last backup: never';
+ fuBadge();
 }
 $('bkBtn').onclick=()=>$('bExpAll').click();
+const fuLim=()=>Math.max(0,S.fuDays)*864e5;
+const setBadge=n=>{$('t-hist').textContent=n?'History ('+n+')':'History'};
+async function fuBadge(){try{const now=Date.now(),lim=fuLim();setBadge((await dbAll('quotes')).filter(q=>q.status==='Sent'&&now-(q.sentAt||q.date)>=lim).length)}catch(e){}}
 
 /* ================= settings UI ================= */
 function fill(sel,arr){let v=+sel.value||0;if(v>=arr.length)v=0;sel.innerHTML=arr.map((x,i)=>`<option value="${i}">${esc(x.n)}</option>`).join('');sel.value=v}
-function fillAll(){fill($('mat'),S.materials);fill($('fin'),S.finishes);fill($('cpx'),S.complexity);fill($('sheet'),S.sheets)}
+function fillAll(){fill($('mat'),S.materials);fill($('fin'),S.finishes);fill($('cpx'),S.complexity);fill($('sheet'),S.sheets);renderPresetBtns()}
 function rows(k,cols){return S[k].map((m,i)=>`<div class="srow">${cols.map(c=>`<input ${c==='n'?'style="flex:2"':'inputmode="decimal"'} value="${esc(m[c])}" onchange="eRow('${k}',${i},'${c}',this.value)">`).join('')}<button class="x" onclick="delRow('${k}',${i})">✕</button></div>`).join('')}
 function renderSettings(){
  $('sMat').innerHTML=rows('materials',['n','d','r']);
  $('sSheet').innerHTML=rows('sheets',['n','w','h']);
  $('sFin').innerHTML=rows('finishes',['n','f']);
  $('sCpx').innerHTML=rows('complexity',['n','f']);
+ renderPresets();
  document.querySelectorAll('[data-k]').forEach(el=>el.value=S[el.dataset.k]);
  $('logoPrev').hidden=!S.logo;if(S.logo)$('logoPrev').src=S.logo;
  bk();
@@ -336,6 +367,18 @@ function renderSettings(){
 function eRow(k,i,f,v){S[k][i][f]=f==='n'?v:N(v);save();fillAll();calc()}
 function delRow(k,i){if(S[k].length>1){S[k].splice(i,1);save();renderSettings();fillAll();calc()}}
 function addRow(k){S[k].push(k==='materials'?{n:"New",d:7850,r:30}:k==='sheets'?{n:"New sheet",w:2500,h:1250}:{n:"New",f:1});save();renderSettings();fillAll()}
+/* extra-line presets */
+function renderPresets(){
+ $('sPre').innerHTML=S.presets.map((p,i)=>`<div class="srow"><input style="flex:2" value="${esc(p.n)}" onchange="ePre(${i},'n',this.value)"><select onchange="ePre(${i},'neg',this.value==='1')"><option value="0" ${p.neg?'':'selected'}>Charge</option><option value="1" ${p.neg?'selected':''}>Discount</option></select><input inputmode="decimal" placeholder="R" value="${esc(p.a||'')}" onchange="ePre(${i},'a',this.value)"><button class="x" onclick="delPre(${i})">✕</button></div>`).join('');
+}
+function ePre(i,f,v){S.presets[i][f]=f==='n'?v:f==='a'?N(v):!!v;save();renderPresetBtns()}
+function delPre(i){S.presets.splice(i,1);save();renderPresets();renderPresetBtns()}
+function addPre(){S.presets.push({n:"New extra",a:0,neg:false});save();renderPresets();renderPresetBtns()}
+function renderPresetBtns(){
+ $('exBtns').innerHTML=S.presets.map((p,i)=>`<button class="sm" onclick="exPre(${i})">+ ${esc(p.n)}${p.a?' (R'+p.a+')':''}</button>`).join('')+`<button class="sm" onclick="exAdd('')">+ Other</button>`;
+}
+function exPre(i){const p=S.presets[i];if(!p)return;extras.push({d:p.n,a:p.a?String(p.a):'',neg:!!p.neg});renderExtras();calc()}
+
 $('v-set').addEventListener('change',e=>{const k=e.target.dataset&&e.target.dataset.k;if(!k)return;
  S[k]=NUMK.includes(k)?N(e.target.value):e.target.value;save();
  if(k==='gap')$('gap').value=S.gap;if(k==='edge')$('edge').value=S.edge;
@@ -403,17 +446,37 @@ function exAdd(d,neg){extras.push({d:d||'',a:'',neg:!!neg});renderExtras();calc(
 /* ================= pricing ================= */
 let loops=null,cutLen=0,D={},openPct=0,srcMode='photo',priceManual=false;
 const ru=(v,s)=>s>0?Math.ceil(v/s-1e-9)*s:v;
-function calc(){
- const m=S.materials[$('mat').value]||S.materials[0],fi=S.finishes[$('fin').value]||S.finishes[0],cx=S.complexity[$('cpx').value]||S.complexity[0];
- const shI=S.sheets[$('sheet').value]||S.sheets[0];
- const t=N($('t').value),q=Math.max(1,Math.round(N($('q').value))||1),w=N($('w').value),h=N($('h').value),mg=N($('mg').value);
- const basis=$('basis').value,net=basis==='net',sheetBasis=basis==='share'||basis==='full';
- $('openWrap').hidden=!net;
- const gap=$('gap').value.trim()===''?S.gap:N($('gap').value);
- const edge=$('edge').value.trim()===''?S.edge:N($('edge').value);
+
+/* copy the form + photo/DXF state into the current item */
+function syncOut(){
+ const it=items[cur];if(!it)return;
+ it.name=$('iname').value;
+ it.w=$('w').value;it.h=$('h').value;it.t=$('t').value;it.q=$('q').value;
+ it.mat=(S.materials[$('mat').value]||S.materials[0]).n;
+ it.fin=(S.finishes[$('fin').value]||S.finishes[0]).n;
+ it.cpx=(S.complexity[$('cpx').value]||S.complexity[0]).n;
+ it.sheet=(S.sheets[$('sheet').value]||S.sheets[0]).n;
+ it.basis=$('basis').value;it.open=$('open').value;it.gap=$('gap').value;it.edge=$('edge').value;it.rnd=$('rnd').value;
+ it.pm=priceManual;it.pv=$('price').value;
+ it.src=srcMode;it.photo=photoURL;
+ it.corners=(corners&&srcC.width)?corners.map(c=>[c[0]/srcC.width,c[1]/srcC.height]):null;
+ it.thr=gray?+$('thr').value:null;it.md=$('metalDark').value;it.shade=$('shade').checked;it.minA=$('minA').value;
+ it.incPrev=$('incPrev').checked;it.incPrev2=$('incPrev2').checked;
+ it.loops=loops;it.cutLen=cutLen;it.fdims=fdims;it.openPct=openPct;it.dxfName=dxfName;
+}
+/* pure price calculation for one item (no screen access) */
+function priceItem(it,mg){
+ const m=S.materials.find(x=>x.n===it.mat)||S.materials[0],
+  fi=S.finishes.find(x=>x.n===it.fin)||S.finishes[0],
+  cx=S.complexity.find(x=>x.n===it.cpx)||S.complexity[0],
+  shI=S.sheets.find(x=>x.n===it.sheet)||S.sheets[0];
+ const t=N(it.t),q=Math.max(1,Math.round(N(it.q))||1),w=N(it.w),h=N(it.h);
+ const basis=it.basis,net=basis==='net',sheetBasis=basis==='share'||basis==='full';
+ const gap=String(it.gap==null?'':it.gap).trim()===''?S.gap:N(it.gap);
+ const edge=String(it.edge==null?'':it.edge).trim()===''?S.edge:N(it.edge);
  const fit=fitSheet(w,h,shI.w,shI.h,gap,edge);
  const sheetKg=(shI.w/1000)*(shI.h/1000)*(t/1000)*m.d;
- let area=(w/1000)*(h/1000);if(net)area*=1-N($('open').value)/100;
+ let area=(w/1000)*(h/1000);if(net)area*=1-N(it.open)/100;
  const pkg=area*(t/1000)*m.d;
  let kg=pkg,tot=pkg*q,sheetsUsed=0,fallback=false;
  if(sheetBasis){
@@ -422,40 +485,59 @@ function calc(){
  }
  const sb=sheetBasis&&!fallback;
  const mc=tot*m.r,fc=mc*fi.f,cc=fc*cx.f;
- const np=loops?loops.length:0,cutC=((loops?cutLen/1000:0)*S.cutRate+np*S.pierce)*q;
- const cost=cc+cutC,mgn=cost*(1+mg/100),calcMin=Math.max(mgn,S.min),rnd=N($('rnd').value),calcPrice=ru(calcMin,rnd);
- const pv=$('price').value.trim(),manual=priceManual&&pv!=='',price=manual?N(pv):calcPrice;
+ const lp=it.loops,np=lp?lp.length:0,cutC=((lp?(it.cutLen||0)/1000:0)*S.cutRate+np*S.pierce)*q;
+ const cost=cc+cutC,mgn=cost*(1+mg/100),calcMin=Math.max(mgn,S.min),rnd=N(it.rnd),calcPrice=ru(calcMin,rnd);
+ const pv=String(it.pv==null?'':it.pv).trim(),manual=!!it.pm&&pv!=='',price=manual?N(pv):calcPrice;
+ return{m,fi,cx,shI,t,q,w,h,gap,edge,basis,net,sheetBasis,fit,sheetKg,pkg,kg,tot,sheetsUsed,fallback,sb,mc,fc,cc,cutC,cost,mgn,calcMin,rnd,calcPrice,manual,price,np,
+  matN:m.n,finN:fi.n,cpxN:cx.n,sheetN:shI.n,sheetsNeeded:fit.n>0?Math.ceil(q/fit.n):0};
+}
+function itemWarns(it,r){
+ const W=[];
+ if(!(r.w>0&&r.h>0))W.push('Panel width or height is missing.');
+ if(!(r.t>0))W.push('Thickness is missing.');
+ if(r.w>0&&r.h>0&&r.t>0){
+  const anyFit=S.sheets.some(s=>fitSheet(r.w,r.h,s.w,s.h,r.gap,r.edge).n>0);
+  if(!anyFit)W.push('The panel is bigger than every sheet size (after gap and edge margin).');
+  else if(r.fallback)W.push('The panel does not fit the selected sheet, so it is charged on panel weight.');
+ }
+ if(it.src==='dxf'&&it.loops){const no=it.loops.filter(l=>l.open).length;if(no)W.push(no+' open path(s) in the DXF (red lines): the drawing has gaps, so cut length and open area may be wrong.')}
+ if(r.net||it.loops){const op=r.net?N(it.open):(it.openPct||0);
+  if(op<3)W.push('Open area is only '+op.toFixed(1)+'%. Check the threshold, drawing or the open area %.');
+  else if(op>85)W.push('Open area is very high ('+op.toFixed(1)+'%). Check the threshold, drawing or the open area %.')}
+ if(r.price<=0)W.push('The price to charge is R0.');
+ return W;
+}
+function calc(){
+ if(loading)return D;
+ syncOut();
+ const n=items.length,mg=N($('mg').value),rs=items.map(it=>priceItem(it,mg)),r=rs[cur];
+ const{m,fi,cx,shI,fit,w,h,t,q,gap,edge,basis,net,fallback,sb,sheetsUsed,kg,tot,mc,fc,cc,cutC,mgn,calcMin,rnd,calcPrice,manual,price,np}=r;
+ $('openWrap').hidden=!net;
  if(!manual&&document.activeElement!==$('price'))$('price').value=calcPrice.toFixed(2);
  const ex=extras.map(e=>({d:String(e.d||'').trim(),a:(e.neg?-1:1)*Math.abs(N(e.a))}));
- const exSum=ex.reduce((s,e)=>s+e.a,0);
- const vatOn=$('vat').value==='1',sub=price+exSum,vat=vatOn?sub*S.vat/100:0,total=sub+vat;
+ const exSum=ex.reduce((s,e)=>s+e.a,0),itemsSum=rs.reduce((s,x)=>s+x.price,0),cost=rs.reduce((s,x)=>s+x.cost,0);
+ const vatOn=$('vat').value==='1',sub=itemsSum+exSum,vat=vatOn?sub*S.vat/100:0,total=sub+vat;
  const profit=sub-cost,pm=sub>0?100*profit/sub:0,mu=cost>0?100*profit/cost:0;
  const dep=Math.min(100,Math.max(0,N($('dep').value))),depAmt=total*dep/100;
 
  /* warnings */
  const W=[];
  if(!$('client').value.trim())W.push('No client name entered.');
- if(!(w>0&&h>0))W.push('Panel width or height is missing.');
- if(!(t>0))W.push('Thickness is missing.');
- if(w>0&&h>0&&t>0){
-  const anyFit=S.sheets.some(s=>fitSheet(w,h,s.w,s.h,gap,edge).n>0);
-  if(!anyFit)W.push('The panel is bigger than every sheet size (after gap and edge margin).');
-  else if(fallback)W.push('The panel does not fit the selected sheet, so it is charged on panel weight.');
- }
- if(srcMode==='dxf'&&loops){const no=loops.filter(l=>l.open).length;if(no)W.push(no+' open path(s) in the DXF (red lines): the drawing has gaps, so cut length and open area may be wrong.')}
- if(net||loops){const op=net?N($('open').value):openPct;
-  if(op<3)W.push('Open area is only '+op.toFixed(1)+'%. Check the threshold, drawing or the open area %.');
-  else if(op>85)W.push('Open area is very high ('+op.toFixed(1)+'%). Check the threshold, drawing or the open area %.')}
- if(price<=0)W.push('The price to charge is R0.');
- else if(profit<0)W.push('Your price is below your cost (loss of '+R(-profit)+').');
+ items.forEach((it,i)=>itemWarns(it,rs[i]).forEach(s=>W.push((n>1?'Item '+(i+1)+': ':'')+s)));
+ if(sub>0&&profit<0)W.push('Your price is below your cost (loss of '+R(-profit)+').');
  if(extras.some(e=>(String(e.d||'').trim()===''&&N(e.a)!==0)))W.push('An extra line has an amount but no description.');
  if(extras.some(e=>(String(e.d||'').trim()!==''&&N(e.a)===0)))W.push('An extra line has a description but no amount.');
  const wb=$('warns');wb.hidden=!W.length;
  wb.innerHTML=W.length?'<b>⚠ Check before sending</b><ul>'+W.map(x=>'<li>'+esc(x)+'</li>').join('')+'</ul>':'';
 
- D={matN:m.n,finN:fi.n,cpxN:cx.n,sheetN:shI.n,gap,edge,basis,kg,pkg,tot,mc,fc,cc,cutC,cost,mgn,calcPrice,price,manual,ex,exSum,sub,vat,total,profit,dep,depAmt,q,t,w,h,mg,net,vatOn,warns:W};
+ D={items:rs,n,mg,ex,exSum,itemsSum,cost,sub,vat,vatOn,vatPct:S.vat,total,profit,dep,depAmt,warns:W};
 
- $('result').innerHTML=`<table>
+ /* item list */
+ $('edLine').hidden=n<2;$('edLine').textContent='Editing item '+(cur+1)+' of '+n;
+ $('itemList').innerHTML=items.map((it,i)=>{const x=rs[i];
+  return `<div class="itrow ${i===cur?'on':''}" onclick="selItem(${i})"><div><b>${i+1}. ${esc(lbl(it,i))}</b><div class="muted" style="margin:2px 0 0">${x.w>0&&x.h>0?r1(x.w)+'×'+r1(x.h)+' mm':'size?'} ×${x.q} · ${esc(x.matN)} ${x.t||'?'} mm</div></div><div style="text-align:right;white-space:nowrap"><b>${R(x.price)}</b></div></div>`}).join('');
+
+ $('result').innerHTML=`${n>1?`<div class="muted"><b>Item ${cur+1}: ${esc(lbl(items[cur],cur))}</b></div>`:''}<table>
  ${fallback?`<tr><td colspan="2" class="warn">⚠ Panel doesn't fit the selected sheet – charged on panel weight instead</td></tr>`:''}
  ${sb?`<tr><td>Panels per sheet</td><td>${fit.n}${fit.rot?' (turned 90°)':''}</td></tr>
  <tr><td>Sheets charged</td><td>${basis==='full'?sheetsUsed:sheetsUsed.toFixed(2)} × ${esc(shI.n)}</td></tr>`:''}
@@ -465,7 +547,7 @@ function calc(){
  <tr><td>${esc(fi.n)} (×${fi.f})</td><td>${R(fc-mc)}</td></tr>
  <tr><td>${esc(cx.n)} (×${cx.f})</td><td>${R(cc-fc)}</td></tr>
  ${cutC>0?`<tr><td>Cut length / pierces</td><td>${R(cutC)}</td></tr>`:''}
- <tr><td>Margin ${mg}%</td><td>${R(mgn-cost)}</td></tr>
+ <tr><td>Margin ${mg}%</td><td>${R(mgn-r.cost)}</td></tr>
  ${S.min>mgn?`<tr><td>Minimum charge applied</td><td>${R(S.min-mgn)}</td></tr>`:''}
  ${calcPrice-calcMin>0.004?`<tr><td>Rounded up to nearest R${rnd}</td><td>${R(calcPrice-calcMin)}</td></tr>`:''}
  <tr><td><b>Calculated price (before VAT)</b></td><td><b>${R(calcPrice)}</b></td></tr></table>
@@ -476,13 +558,14 @@ function calc(){
   $('priceNote').textContent=`You are charging ${R(Math.abs(df))} ${df>=0?'above':'below'} the calculated price (${pc>=0?'+':''}${pc.toFixed(1)}%). Tap Reset to go back.`}
  else $('priceNote').textContent='Using the calculated price. Type a different amount above to override it.';
 
+ const note=[n===1?`Per panel: ${R(price/q)} excl. VAT`:'',dep>0?`Deposit ${dep}%: ${R(depAmt)} · Balance: ${R(total-depAmt)}`:''].filter(Boolean).join(' · ');
  $('totals').innerHTML=`<table>
- <tr><td>${manual?'Your price':'Price'}${q>1?' (all '+q+' panels)':''}, excl. VAT</td><td>${R(price)}</td></tr>
+ ${n>1?rs.map((x,i)=>`<tr><td>${i+1}. ${esc(lbl(items[i],i))}${x.q>1?' (×'+x.q+')':''}${x.manual?' – your price':''}</td><td>${R(x.price)}</td></tr>`).join(''):`<tr><td>${manual?'Your price':'Price'}${q>1?' (all '+q+' panels)':''}, excl. VAT</td><td>${R(price)}</td></tr>`}
  ${ex.filter(e=>e.d||e.a).map(e=>`<tr><td>${esc(e.d||'Additional charge')}</td><td>${R(e.a)}</td></tr>`).join('')}
  <tr><td>Subtotal</td><td>${R(sub)}</td></tr>
  <tr><td>VAT ${vatOn?S.vat+'%':''}</td><td>${R(vat)}</td></tr></table>
  <div style="margin-top:8px">Total to client</div><div class="total">${R(total)}</div>
- <div class="muted">Per panel: ${R(price/q)} excl. VAT${dep>0?` · Deposit ${dep}%: ${R(depAmt)} · Balance: ${R(total-depAmt)}`:''}</div>
+ <div class="muted">${note}</div>
  <div class="sheetbox"><b>Your profit (not shown on the PDF)</b><table>
  <tr><td>Cost (material, finish, complexity, cutting)</td><td>${R(cost)}</td></tr>
  <tr><td>Your price excl. VAT (incl. extra lines)</td><td>${R(sub)}</td></tr>
@@ -545,7 +628,7 @@ function homography(dst,src){
   for(let r=0;r<8;r++)if(r!==c){const f=A[r][c]/A[c][c];for(let k=c;k<9;k++)A[r][k]-=f*A[c][k]}}
  return A.map((r,i)=>r[8]/r[i]);
 }
-function doFlatten(keep){
+function doFlatten(keep,noScroll){
  if(!corners)return;
  const Wm=N($('w').value),Hm=N($('h').value);
  if(!(Wm>0&&Hm>0)){alert('Enter the panel width and height first.');return}
@@ -565,7 +648,7 @@ function doFlatten(keep){
  fx.putImageData(out,0,0);
  $('mask').width=ow;$('mask').height=oh;
  $('anal').hidden=false;prep(keep);updateMask();
- $('anal').scrollIntoView({behavior:'smooth'});
+ if(!noScroll)$('anal').scrollIntoView({behavior:'smooth'});
 }
 $('btnFlat').onclick=()=>doFlatten(false);
 ['w','h'].forEach(id=>$(id).addEventListener('change',()=>{if(corners&&gray)doFlatten(true)}));
@@ -840,8 +923,8 @@ $('dxfIn').onchange=async e=>{
 };
 $('dxfUse').onclick=()=>{$('basis').value='net';$('open').value=r1(openPct);calc();$('result').scrollIntoView({behavior:'smooth'})};
 
-/* ================= SVG / DXF export ================= */
-const fname=()=>safeName((curNo||'quote')+' '+($('client').value||''));
+/* ================= SVG / DXF export (current item) ================= */
+const fname=()=>safeName((curNo||'quote')+' '+($('client').value||'')+(items.length>1?' item'+(cur+1):''));
 $('btnSVG').onclick=async()=>{if(!ensure())return;
  const d=loops.map(l=>'M'+l.map(p=>p[0]+' '+p[1]).join('L')+(l.open?'':'Z')).join('');
  const svg=`<svg xmlns="http://www.w3.org/2000/svg" width="${fdims.w}mm" height="${fdims.h}mm" viewBox="0 0 ${fdims.w} ${fdims.h}"><path d="${d}" fill="none" stroke="#000" stroke-width="0.2"/></svg>`;
@@ -854,7 +937,7 @@ $('btnDXF').onclick=async()=>{if(!ensure())return;
  s+='0\nENDSEC\n0\nEOF\n';
  await saveFile(fname()+'.dxf',new Blob([s],{type:'application/dxf'}))};
 
-/* ================= PDF ================= */
+/* ================= PDF (quote + job card, multi-page) ================= */
 function wrap(x,text,px,py,maxW,lh){
  for(const para of String(text).split('\n')){let line='';
   for(const word of para.split(' ')){const t=line?line+' '+word:word;
@@ -865,88 +948,164 @@ function wrap(x,text,px,py,maxW,lh){
 function fit(x,im,bx,by,bw,bh){const s=Math.min(bw/im.width,bh/im.height),w=im.width*s,h=im.height*s;
  x.drawImage(im,bx+(bw-w)/2,by+(bh-h)/2,w,h);x.strokeStyle='#ccc';x.lineWidth=2;x.strokeRect(bx,by,bw,bh)}
 const prevCan=()=>srcMode==='dxf'?(loops?$('dxfC'):null):(gray?$('mask'):null);
-async function drawQuote(q,H,bh){
- const W=1240,M=80,F='Helvetica,Arial,sans-serif',RED='#c8102e',c=document.createElement('canvas');
- c.width=W;c.height=H;const x=c.getContext('2d');x.fillStyle='#fff';x.fillRect(0,0,W,H);x.textBaseline='top';x.textAlign='left';
+/* store a picture of the current item's cut preview so the PDF can use it later */
+function snapPrev(){const it=items[cur],c=prevCan();it.prev=(c&&c.width>1)?c.toDataURL('image/png'):null}
+async function loadVis(q,job){
+ const out=[];
+ for(const it of q.items){
+  let ph=null,pv=null;
+  if(it.photo){try{ph=await loadImg(it.photo)}catch(e){}}
+  const want=job||(it.src==='dxf'?it.incPrev2:it.incPrev);
+  if(it.prev&&want){try{pv=await loadImg(it.prev)}catch(e){}}
+  out.push({ph,pv});
+ }
+ return out;
+}
+async function drawDoc(q,kind,vis,H,bh){
+ const W=1240,M=80,F='Helvetica,Arial,sans-serif',RED='#c8102e',job=kind==='job',br=[],its=q.items,n=its.length,qc=q.calc||{};
+ const c=document.createElement('canvas');c.width=W;c.height=H;const x=c.getContext('2d');
+ x.fillStyle='#fff';x.fillRect(0,0,W,H);x.textBaseline='top';x.textAlign='left';
  let y=M,ly=M;
  if(S.logo){try{const im=await loadImg(S.logo),s=Math.min(360/im.width,150/im.height);x.drawImage(im,M,ly,im.width*s,im.height*s);ly+=im.height*s+14}catch(e){}}
  x.fillStyle='#111';x.font=`bold 38px ${F}`;x.fillText(S.biz,M,ly);ly+=50;
  x.font=`22px ${F}`;x.fillStyle='#444';
- (S.addr+(S.vatNo?'\nVAT no: '+S.vatNo:'')).split('\n').filter(Boolean).forEach(l=>{x.fillText(l,M,ly);ly+=30});
+ (S.addr+((S.vatNo&&!job)?'\nVAT no: '+S.vatNo:'')).split('\n').filter(Boolean).forEach(l=>{x.fillText(l,M,ly);ly+=30});
  const f=d=>d.toLocaleDateString('en-ZA');
- x.textAlign='right';x.fillStyle=RED;x.font=`bold 56px ${F}`;x.fillText('QUOTATION',W-M,y);
+ x.textAlign='right';x.fillStyle=RED;x.font=`bold 56px ${F}`;x.fillText(job?'JOB CARD':'QUOTATION',W-M,y);
  x.fillStyle='#111';x.font=`26px ${F}`;
  x.fillText(q.number,W-M,y+76);x.fillText('Date: '+f(new Date(q.date)),W-M,y+112);
- x.fillText('Valid until: '+f(new Date(q.date+S.validity*864e5)),W-M,y+148);x.textAlign='left';
+ if(!job)x.fillText('Valid until: '+f(new Date(q.date+S.validity*864e5)),W-M,y+148);
+ x.textAlign='left';
  y=Math.max(ly,y+190)+20;x.fillStyle='#ddd';x.fillRect(M,y,W-2*M,3);y+=24;
- x.fillStyle='#777';x.font=`22px ${F}`;x.fillText('PREPARED FOR',M,y);y+=30;
+ x.fillStyle='#777';x.font=`22px ${F}`;x.fillText(job?'CLIENT':'PREPARED FOR',M,y);y+=30;
  x.fillStyle='#111';x.font=`bold 32px ${F}`;x.fillText(q.client.name||'-',M,y);y+=44;
  x.font=`24px ${F}`;x.fillStyle='#444';
- const cl=[q.client.phone,q.client.email].concat(String(q.client.addr||'').split('\n')).concat(q.client.cvat?['VAT no: '+q.client.cvat]:[]).map(s=>String(s||'').trim()).filter(Boolean);
- cl.forEach(l=>{x.fillText(l,M,y);y+=32});
+ const cl=job?[q.client.phone]:[q.client.phone,q.client.email].concat(String(q.client.addr||'').split('\n')).concat(q.client.cvat?['VAT no: '+q.client.cvat]:[]);
+ cl.map(s=>String(s||'').trim()).filter(Boolean).forEach(l=>{x.fillText(l,M,y);y+=32});
  if(q.desc&&q.desc.trim()){y+=12;x.fillStyle='#777';x.font=`22px ${F}`;x.fillText('DESCRIPTION',M,y);y+=30;
   x.fillStyle='#111';x.font=`26px ${F}`;y=wrap(x,q.desc.trim(),M,y,W-2*M,34)}
+ if(job){y+=14;x.fillStyle='#111';x.font=`26px ${F}`;x.fillText('Lead time: '+(q.lead&&q.lead.trim()?q.lead.trim():'-'),M,y);
+  x.textAlign='right';x.fillText('Due date: ____________________',W-M,y);x.textAlign='left';y+=40}
  y+=20;
- const pc=q.incPrev?prevCan():null,hasPh=!!photoURL,bw=(pc&&hasPh)?(W-2*M-30)/2:W-2*M;let bx=M;
- if(hasPh){try{fit(x,await loadImg(photoURL),M,y,bw,bh)}catch(e){}bx=M+bw+30}
- if(pc)fit(x,pc,bx,y,bw,bh);
- x.fillStyle='#777';x.font=`20px ${F}`;
- if(hasPh)x.fillText('Reference photo',M,y+bh+8);
- if(pc)x.fillText(srcMode==='dxf'?'Cut drawing preview':'Indicative cut preview (not final artwork)',bx,y+bh+8);
- if(hasPh||pc)y+=bh+50;
- const d=q.calc,pw=d.pkg!=null?d.pkg*d.q:d.tot;
- const rowsA=[['Material',d.matN],['Thickness',d.t+' mm'],['Panel size',d.w+' × '+d.h+' mm'],['Quantity',String(d.q)],['Finish',d.finN],['Approx. panel weight',pw.toFixed(1)+' kg']];
- if(q.lead&&q.lead.trim())rowsA.push(['Estimated lead time',q.lead.trim()]);
- rowsA.forEach((r,i)=>{if(i%2===0){x.fillStyle='#f4f4f4';x.fillRect(M,y,W-2*M,50)}
-  x.fillStyle='#111';x.font=`26px ${F}`;x.fillText(r[0],M+16,y+10);x.textAlign='right';x.fillText(r[1],W-M-16,y+10);x.textAlign='left';y+=50});
- y+=20;
- const exs=(d.ex||[]).filter(e=>e.d||e.a),tot=[];
- if(d.q>1)tot.push(['Price per panel (excl. VAT)',R(d.price/d.q)]);
- if(exs.length){tot.push([d.q>1?'Panels × '+d.q+' (excl. VAT)':'Panel (excl. VAT)',R(d.price)]);exs.forEach(e=>tot.push([e.d||'Additional charge',R(e.a)]))}
- tot.push(['Subtotal (excl. VAT)',R(d.sub)],['VAT'+(d.vatOn?' '+S.vat+'%':''),R(d.vat)]);
- tot.forEach(r=>{x.font=`26px ${F}`;x.fillStyle='#111';x.fillText(String(r[0]).slice(0,60),M+16,y);x.textAlign='right';x.fillText(r[1],W-M-16,y);x.textAlign='left';y+=42});
+
+ const rowT=(rows,hh)=>{rows.forEach((r,i)=>{if(i%2===0){x.fillStyle='#f4f4f4';x.fillRect(M,y,W-2*M,hh)}
+  x.fillStyle='#111';x.font=`26px ${F}`;x.fillText(r[0],M+16,y+10);x.textAlign='right';x.fillText(String(r[1]).slice(0,60),W-M-16,y+10);x.textAlign='left';y+=hh})};
+
+ for(let i=0;i<n;i++){
+  const it=its[i],d=it.calc,v=vis[i];
+  br.push(y);
+  if(n>1){x.fillStyle='#ddd';x.fillRect(M,y,W-2*M,2);y+=16;x.fillStyle=RED;x.font=`bold 30px ${F}`;
+   x.fillText(('Item '+(i+1)+(it.name&&it.name.trim()?': '+it.name.trim():'')).slice(0,60),M,y);y+=48}
+  const hasPh=!!v.ph,hasPv=!!v.pv,bw=(hasPh&&hasPv)?(W-2*M-30)/2:W-2*M;let bx=M;
+  if(hasPh){fit(x,v.ph,M,y,bw,bh);bx=M+bw+30}
+  if(hasPv)fit(x,v.pv,bx,y,bw,bh);
+  x.fillStyle='#777';x.font=`20px ${F}`;x.textAlign='left';
+  if(hasPh)x.fillText('Reference photo',M,y+bh+8);
+  if(hasPv)x.fillText(it.src==='dxf'?'Cut drawing preview':'Indicative cut preview'+(job?'':' (not final artwork)'),bx,y+bh+8);
+  if(hasPh||hasPv)y+=bh+50;
+  let rows;
+  if(job){
+   const fi=d.fit;
+   rows=[['Material',d.matN],['Thickness',d.t+' mm'],['Panel size',d.w+' × '+d.h+' mm'],['Quantity',String(d.q)],['Finish',d.finN],['Sheet size',d.sheetN],
+    ['Panels per sheet',fi&&fi.n>0?fi.n+(fi.rot?' (turned 90°)':''):'does not fit'],['Sheets to cut',fi&&fi.n>0?String(d.sheetsNeeded):'-'],['Weight per panel',(d.pkg||0).toFixed(1)+' kg']];
+   if(it.loops&&it.loops.length)rows.push(['Cut length / pierces per panel',((it.cutLen||0)/1000).toFixed(2)+' m / '+it.loops.length]);
+  }else{
+   const pw=d.pkg!=null?d.pkg*d.q:d.tot;
+   rows=[['Material',d.matN],['Thickness',d.t+' mm'],['Panel size',d.w+' × '+d.h+' mm'],['Quantity',String(d.q)],['Finish',d.finN],['Approx. panel weight',pw.toFixed(1)+' kg']];
+   if(n===1&&q.lead&&q.lead.trim())rows.push(['Estimated lead time',q.lead.trim()]);
+  }
+  rowT(rows,50);
+  y+=n>1?16:20;
+ }
+
+ if(job){
+  br.push(y);x.fillStyle='#777';x.font=`22px ${F}`;x.fillText('NOTES',M,y);y+=30;
+  x.strokeStyle='#ccc';x.lineWidth=2;x.strokeRect(M,y,W-2*M,200);y+=220;
+  return{c,end:y,breaks:br};
+ }
+
+ br.push(y);
+ if(n>1&&q.lead&&q.lead.trim()){rowT([['Estimated lead time',q.lead.trim()]],50);y+=14}
+ const exs=(qc.ex||[]).filter(e=>e.d||e.a),tot=[];
+ if(n===1){const d=its[0].calc;
+  if(d.q>1)tot.push(['Price per panel (excl. VAT)',R(d.price/d.q)]);
+  if(exs.length){tot.push([d.q>1?'Panels × '+d.q+' (excl. VAT)':'Panel (excl. VAT)',R(d.price)]);exs.forEach(e=>tot.push([e.d||'Additional charge',R(e.a)]))}
+ }else{
+  its.forEach((it,i)=>{const d=it.calc;tot.push([(i+1)+'. '+((it.name&&it.name.trim())||('Item '+(i+1)))+(d.q>1?'  (×'+d.q+' @ '+R(d.price/d.q)+')':''),R(d.price)])});
+  exs.forEach(e=>tot.push([e.d||'Additional charge',R(e.a)]));
+ }
+ tot.push(['Subtotal (excl. VAT)',R(qc.sub)],['VAT'+(qc.vatOn?' '+(qc.vatPct!=null?qc.vatPct:S.vat)+'%':''),R(qc.vat)]);
+ tot.forEach(r=>{x.font=`26px ${F}`;x.fillStyle='#111';x.fillText(String(r[0]).slice(0,62),M+16,y);x.textAlign='right';x.fillText(r[1],W-M-16,y);x.textAlign='left';y+=42});
  x.fillStyle=RED;x.fillRect(M,y+4,W-2*M,3);y+=22;
- x.font=`bold 40px ${F}`;x.fillStyle=RED;x.fillText('TOTAL',M+16,y);x.textAlign='right';x.fillText(R(d.total),W-M-16,y);x.textAlign='left';y+=64;
- if(d.dep>0){x.font=`26px ${F}`;x.fillStyle='#111';
-  x.fillText(`Deposit (${d.dep}%) payable on acceptance`,M+16,y);x.textAlign='right';x.fillText(R(d.depAmt),W-M-16,y);x.textAlign='left';y+=38;
-  x.fillText('Balance due',M+16,y);x.textAlign='right';x.fillText(R(d.total-d.depAmt),W-M-16,y);x.textAlign='left';y+=56}
+ x.font=`bold 40px ${F}`;x.fillStyle=RED;x.fillText('TOTAL',M+16,y);x.textAlign='right';x.fillText(R(qc.total),W-M-16,y);x.textAlign='left';y+=64;
+ if(qc.dep>0){x.font=`26px ${F}`;x.fillStyle='#111';
+  x.fillText(`Deposit (${qc.dep}%) payable on acceptance`,M+16,y);x.textAlign='right';x.fillText(R(qc.depAmt),W-M-16,y);x.textAlign='left';y+=38;
+  x.fillText('Balance due',M+16,y);x.textAlign='right';x.fillText(R(qc.total-qc.depAmt),W-M-16,y);x.textAlign='left';y+=56}
  else y+=16;
+ br.push(y);
  x.fillStyle='#444';x.font=`22px ${F}`;
  if(S.terms)y=wrap(x,S.terms,M,y,W-2*M,30)+14;
  if(S.bank){x.font=`bold 22px ${F}`;x.fillText('Banking details',M,y);y+=30;x.font=`22px ${F}`;y=wrap(x,S.bank,M,y,W-2*M,30)}
- return{c,end:y};
+ return{c,end:y,breaks:br};
 }
-async function quoteCanvas(q){
- const A=1754,M=80,TH=4200;
- let r=await drawQuote(q,TH,440),over=r.end+M-A;
- if(over>0){r=await drawQuote(q,TH,Math.max(200,440-over));over=r.end+M-A}
- const c=document.createElement('canvas');c.width=1240;c.height=A;const x=c.getContext('2d');x.fillStyle='#fff';x.fillRect(0,0,1240,A);
- const hh=Math.min(TH,r.end+M),s=Math.min(1,A/hh);
- x.drawImage(r.c,0,0,1240,hh,(1240-1240*s)/2,0,1240*s,hh*s);
- return c;
+async function docPages(q,kind){
+ const vis=await loadVis(q,kind==='job'),A=1754,M=80,W=1240,n=q.items.length;
+ if(n===1){
+  const TH=4200;let bh=kind==='job'?380:440;
+  let r=await drawDoc(q,kind,vis,TH,bh),over=r.end+M-A;
+  if(over>0){bh=Math.max(200,bh-over);r=await drawDoc(q,kind,vis,TH,bh);over=r.end+M-A}
+  const c=document.createElement('canvas');c.width=W;c.height=A;const x=c.getContext('2d');x.fillStyle='#fff';x.fillRect(0,0,W,A);
+  const hh=Math.min(TH,r.end+M),s=Math.min(1,A/hh);
+  x.drawImage(r.c,0,0,W,hh,(W-W*s)/2,0,W*s,hh*s);
+  return [c];
+ }
+ const TH=Math.min(12500,2400+n*1000),r=await drawDoc(q,kind,vis,TH,300),end=Math.min(r.end,TH),pages=[];
+ let start=0;
+ for(;;){
+  const first=pages.length===0,cap=first?A-M:A-2*M;let endY;
+  if(end-start<=cap)endY=end;
+  else{endY=-1;for(const b of r.breaks){if(b>start+40&&b<=start+cap)endY=b}if(endY<0)endY=start+cap}
+  const pc=document.createElement('canvas');pc.width=W;pc.height=A;const px=pc.getContext('2d');px.fillStyle='#fff';px.fillRect(0,0,W,A);
+  px.drawImage(r.c,0,start,W,endY-start,0,first?0:M,W,endY-start);
+  pages.push(pc);start=endY;
+  if(start>=end-1||pages.length>20)break;
+ }
+ if(pages.length>1)pages.forEach((pc,i)=>{const px=pc.getContext('2d');px.fillStyle='#777';px.font='22px Helvetica,Arial,sans-serif';px.textBaseline='top';
+  if(i>0){px.textAlign='left';px.fillText((kind==='job'?'JOB CARD ':'QUOTATION ')+q.number+' – '+(q.client.name||''),M,34)}
+  px.textAlign='center';px.fillText('Page '+(i+1)+' of '+pages.length,W/2,A-50)});
+ return pages;
 }
-async function makePDF(canvas){
- const blob=await new Promise(r=>canvas.toBlob(r,'image/jpeg',.85)),jpg=new Uint8Array(await blob.arrayBuffer());
+async function makePDF(canvases){
+ const jp=[];
+ for(const c of canvases){const b=await new Promise(r=>c.toBlob(r,'image/jpeg',.85));jp.push(new Uint8Array(await b.arrayBuffer()))}
  const enc=new TextEncoder(),parts=[],offs=[];let off=0;
  const add=b=>{if(typeof b==='string')b=enc.encode(b);parts.push(b);off+=b.length};
- const obj=(n,body)=>{offs[n]=off;add(`${n} 0 obj\n${body}\nendobj\n`)};
+ const n=canvases.length,tot=3+3*n;
  add('%PDF-1.4\n');
- obj(1,'<</Type/Catalog/Pages 2 0 R>>');obj(2,'<</Type/Pages/Kids[3 0 R]/Count 1>>');
- obj(3,'<</Type/Page/Parent 2 0 R/MediaBox[0 0 595.28 841.89]/Resources<</XObject<</Im0 4 0 R>>>>/Contents 5 0 R>>');
- offs[4]=off;add(`4 0 obj\n<</Type/XObject/Subtype/Image/Width ${canvas.width}/Height ${canvas.height}/ColorSpace/DeviceRGB/BitsPerComponent 8/Filter/DCTDecode/Length ${jpg.length}>>\nstream\n`);
- add(jpg);add('\nendstream\nendobj\n');
- const cs='q 595.28 0 0 841.89 0 0 cm /Im0 Do Q';
- obj(5,`<</Length ${cs.length}>>\nstream\n${cs}\nendstream`);
- const xo=off;let xr='xref\n0 6\n0000000000 65535 f \n';
- for(let i=1;i<=5;i++)xr+=String(offs[i]).padStart(10,'0')+' 00000 n \n';
- add(xr+`trailer\n<</Size 6/Root 1 0 R>>\nstartxref\n${xo}\n%%EOF`);
+ offs[1]=off;add('1 0 obj\n<</Type/Catalog/Pages 2 0 R>>\nendobj\n');
+ offs[2]=off;add(`2 0 obj\n<</Type/Pages/Kids[${canvases.map((_,i)=>(3+3*i)+' 0 R').join(' ')}]/Count ${n}>>\nendobj\n`);
+ canvases.forEach((c,i)=>{
+  const pg=3+3*i,im=pg+1,ct=pg+2,cs='q 595.28 0 0 841.89 0 0 cm /Im0 Do Q';
+  offs[pg]=off;add(`${pg} 0 obj\n<</Type/Page/Parent 2 0 R/MediaBox[0 0 595.28 841.89]/Resources<</XObject<</Im0 ${im} 0 R>>>>/Contents ${ct} 0 R>>\nendobj\n`);
+  offs[im]=off;add(`${im} 0 obj\n<</Type/XObject/Subtype/Image/Width ${c.width}/Height ${c.height}/ColorSpace/DeviceRGB/BitsPerComponent 8/Filter/DCTDecode/Length ${jp[i].length}>>\nstream\n`);
+  add(jp[i]);add('\nendstream\nendobj\n');
+  offs[ct]=off;add(`${ct} 0 obj\n<</Length ${cs.length}>>\nstream\n${cs}\nendstream\nendobj\n`);
+ });
+ const xo=off;let xr=`xref\n0 ${tot}\n0000000000 65535 f \n`;
+ for(let i=1;i<tot;i++)xr+=String(offs[i]).padStart(10,'0')+' 00000 n \n';
+ add(xr+`trailer\n<</Size ${tot}/Root 1 0 R>>\nstartxref\n${xo}\n%%EOF`);
  return new Blob(parts,{type:'application/pdf'});
 }
 $('btnPDF').onclick=async()=>{
  const d0=calc();
  if(d0.warns.length&&!confirm('Check before sending:\n\n• '+d0.warns.join('\n• ')+'\n\nCreate the PDF anyway?'))return;
- const q=await saveQuote();const pdf=await makePDF(await quoteCanvas(q));
- await saveFile(safeName(q.number+' '+q.client.name)+'.pdf',pdf)};
+ const q=await saveQuote();const pdf=await makePDF(await docPages(q,'quote'));
+ const ok=await saveFile(safeName(q.number+' '+q.client.name)+'.pdf',pdf);
+ if(ok&&(q.status||'Draft')==='Draft'&&confirm('Mark this quote as Sent so it shows in your follow-up list?')){$('status').value='Sent';await saveQuote()}
+};
+$('btnJob').onclick=async()=>{
+ const q=await saveQuote();const pdf=await makePDF(await docPages(q,'job'));
+ await saveFile(safeName(q.number+' job card '+q.client.name)+'.pdf',pdf)};
 
 /* ================= clients / save / history ================= */
 let curId=null,curNo=null;
@@ -966,23 +1125,24 @@ $('client').addEventListener('change',()=>{
  $('cnote').hidden=false;$('cnote').textContent='Saved settings for this client applied (margin, material basis, sheet, finish, VAT, rounding, deposit). Change anything for this quote if needed.';
  calc()});
 async function saveQuote(asNew){
- const d=calc();
+ while(loading)await sleep(50);
+ const d=calc();snapPrev();
  if(asNew){curId=null;curNo=null}
  if(!curId)curId='q'+Date.now().toString(36)+Math.random().toString(36).slice(2,5);
  if(!curNo){curNo=S.prefix+String(S.next).padStart(4,'0');S.next++;save()}
  const name=$('client').value.trim();
- const q={id:curId,number:curNo,date:Date.now(),
+ const old=await dbGet('quotes',curId),status=$('status').value||'Draft';
+ let sentAt=(old&&old.sentAt)||null;
+ if(status==='Sent'){if(!(old&&old.status==='Sent'))sentAt=Date.now();else if(!sentAt)sentAt=old.date}
+ const its=items.map((it,i)=>Object.assign({},it,{calc:d.items[i],priceVal:d.items[i].price,pm:d.items[i].manual}));
+ const q={id:curId,number:curNo,date:Date.now(),v:6,
   client:{name,phone:$('phone').value,email:$('email').value,addr:$('addr').value,cvat:$('cvat').value},
-  inputs:{w:d.w,h:d.h,t:d.t,q:d.q,basis:$('basis').value,open:N($('open').value),mg:d.mg,vat:$('vat').value,sheet:d.sheetN,gap:d.gap,edge:d.edge,rnd:$('rnd').value,dep:$('dep').value},
-  matN:d.matN,finN:d.finN,cpxN:d.cpxN,calc:d,photo:photoURL,src:srcMode,dxfName:dxfName,
-  extras:extras.map(e=>({d:e.d,a:e.a,neg:!!e.neg})),priceManual:d.manual,priceVal:d.price,
-  desc:$('desc').value,lead:$('lead').value,status:$('status').value||'Draft',
-  corners:corners?corners.map(c=>[c[0]/srcC.width,c[1]/srcC.height]):null,
-  thr:gray?+$('thr').value:null,md:$('metalDark').value,shade:$('shade').checked,minA:$('minA').value,
-  incPrev:srcMode==='dxf'?$('incPrev2').checked:$('incPrev').checked,
-  loops:loops,cutLen:cutLen,fdims:fdims,openPct:openPct};
+  mg:d.mg,vat:$('vat').value,dep:$('dep').value,items:its,
+  extras:extras.map(e=>({d:e.d,a:e.a,neg:!!e.neg})),
+  desc:$('desc').value,lead:$('lead').value,status,sentAt,
+  calc:{itemsSum:d.itemsSum,ex:d.ex,exSum:d.exSum,sub:d.sub,vat:d.vat,vatOn:d.vatOn,vatPct:S.vat,total:d.total,dep:d.dep,depAmt:d.depAmt,cost:d.cost,profit:d.profit,mg:d.mg}};
  await dbPut('quotes',q);
- if(name){const c={key:name.toLowerCase(),name,phone:q.client.phone,email:q.client.email,addr:q.client.addr,cvat:q.client.cvat,margin:d.mg,basis:$('basis').value,sheet:d.sheetN,fin:d.finN,vat:$('vat').value,rnd:$('rnd').value,dep:$('dep').value};await dbPut('clients',c);
+ if(name){const c={key:name.toLowerCase(),name,phone:q.client.phone,email:q.client.email,addr:q.client.addr,cvat:q.client.cvat,margin:d.mg,basis:items[cur].basis,sheet:d.items[cur].sheetN,fin:d.items[cur].finN,vat:$('vat').value,rnd:items[cur].rnd,dep:$('dep').value};await dbPut('clients',c);
   clients=await dbAll('clients');dl()}
  $('qno').textContent='Quote '+curNo+' (saved)';
  bk();
@@ -990,66 +1150,145 @@ async function saveQuote(asNew){
 }
 $('btnSave').onclick=async()=>{await saveQuote();alert('Saved.')};
 $('btnSaveNew').onclick=async()=>{await saveQuote(true);alert('Saved as '+curNo)};
+
+function waNum(p){let d=String(p||'').replace(/[^\d]/g,'');if(!d)return '';
+ if(d.startsWith('00'))d=d.slice(2);else if(d.startsWith('270'))d='27'+d.slice(3);else if(d.startsWith('0'))d='27'+d.slice(1);else if(d.length===9)d='27'+d;return d}
+function qLine(q){
+ if(q.items&&q.items.length){
+  const its=q.items;
+  if(its.length>1)return its.length+' items: '+its.slice(0,3).map((it,i)=>lbl(it,i)).join(', ')+(its.length>3?'…':'');
+  const it=its[0],d=it.calc||{};
+  return (d.matN||it.mat)+' '+(d.t!=null?d.t:it.t)+' mm · '+(d.w!=null?d.w:it.w)+'×'+(d.h!=null?d.h:it.h)+' ×'+(d.q!=null?d.q:it.q);
+ }
+ const i=q.inputs||{};return (q.matN||'')+' '+i.t+' mm · '+i.w+'×'+i.h+' ×'+i.q;
+}
 async function renderHist(){
  const all=(await dbAll('quotes')).sort((a,b)=>b.date-a.date),f=$('hq').value.toLowerCase(),sf=$('hs').value||'all';
  const st=q=>q.status||'Draft',isOpen=q=>st(q)==='Draft'||st(q)==='Sent';
  const op=all.filter(isOpen),ac=all.filter(q=>st(q)==='Accepted');
  const sm=a=>a.reduce((s,q)=>s+(q.calc&&q.calc.total||0),0);
  $('hsum').innerHTML=`Open (Draft + Sent): <b>${op.length}</b> · ${R(sm(op))} &nbsp;|&nbsp; Accepted: <b>${ac.length}</b> · ${R(sm(ac))}`;
+
+ /* follow-up list */
+ const now=Date.now(),lim=fuLim();
+ const fu=all.filter(q=>st(q)==='Sent'&&now-(q.sentAt||q.date)>=lim).sort((a,b)=>(a.sentAt||a.date)-(b.sentAt||b.date));
+ setBadge(fu.length);
+ $('fuBox').hidden=!fu.length;
+ $('fuBox').innerHTML=fu.length?`<b>Follow up (${fu.length})</b><div class="muted">Sent ${S.fuDays}+ days ago with no answer yet.</div>`+fu.map(q=>{
+  const days=Math.floor((now-(q.sentAt||q.date))/864e5),wa=waNum(q.client.phone);
+  const msg=`Hi ${q.client.name||''}, just following up on quote ${q.number} for ${R(q.calc.total)}. Please let me know if you have any questions or would like to go ahead.`;
+  return `<div class="fur"><div style="display:flex;justify-content:space-between"><b>${esc(q.number)} · ${esc(q.client.name||'(no name)')}</b><b>${R(q.calc.total)}</b></div>
+  <div class="muted">Sent ${days} day${days===1?'':'s'} ago</div>
+  <div class="btnrow">${q.client.phone?`<a class="lnk" href="tel:${esc(q.client.phone.replace(/[^\d+]/g,''))}">Call</a>`:''}${wa?`<a class="lnk" href="https://wa.me/${wa}?text=${encodeURIComponent(msg)}" target="_blank" rel="noopener">WhatsApp</a>`:''}<button class="sm" onclick="fuDone('${q.id}')">Followed up ✓</button><button class="sm" onclick="setStatus('${q.id}','Accepted')">Accepted</button><button class="sm" onclick="setStatus('${q.id}','Rejected')">Lost</button><button class="sm" onclick="openQ('${q.id}')">Open</button></div></div>`}).join(''):'';
+
  const list=all.filter(q=>(!f||(q.client.name+' '+q.number+' '+(q.client.phone||'')).toLowerCase().includes(f))&&(sf==='all'||(sf==='open'?isOpen(q):st(q)===sf)));
  $('hlist').innerHTML=list.map(q=>{
   const ph=q.client.phone?`<a href="tel:${esc(q.client.phone.replace(/[^\d+]/g,''))}">${esc(q.client.phone)}</a>`:'',em=q.client.email?`<a href="mailto:${esc(q.client.email)}">${esc(q.client.email)}</a>`:'';
   return `<div class="card"><div style="display:flex;justify-content:space-between"><b>${esc(q.number)}</b><b>${R(q.calc.total)}</b></div>
   <div>${esc(q.client.name||'(no name)')}</div>
   ${(ph||em)?`<div class="muted">${ph}${ph&&em?' · ':''}${em}</div>`:''}
-  <div class="muted">${new Date(q.date).toLocaleDateString('en-ZA')} · ${esc(q.matN)} ${q.inputs.t} mm · ${q.inputs.w}×${q.inputs.h} ×${q.inputs.q}</div>
+  <div class="muted">${new Date(q.date).toLocaleDateString('en-ZA')} · ${esc(qLine(q))}</div>
   <select class="st" style="color:${SCOL[st(q)]}" onchange="setStatus('${q.id}',this.value)">${STAT.map(s=>`<option ${s===st(q)?'selected':''}>${s}</option>`).join('')}</select><br>
   <button class="sec" onclick="openQ('${q.id}')">Open</button> <button class="sec" onclick="delQ('${q.id}')">Delete</button></div>`}).join('')
   ||'<p class="muted">No quotes found.</p>';
 }
 $('hq').addEventListener('input',renderHist);
 $('hs').addEventListener('change',renderHist);
-async function setStatus(id,s){const q=await dbGet('quotes',id);if(!q)return;q.status=s;await dbPut('quotes',q);if(curId===id)$('status').value=s;renderHist()}
+async function setStatus(id,s){const q=await dbGet('quotes',id);if(!q)return;if(s==='Sent'&&q.status!=='Sent')q.sentAt=Date.now();q.status=s;await dbPut('quotes',q);if(curId===id)$('status').value=s;renderHist()}
+async function fuDone(id){const q=await dbGet('quotes',id);if(!q)return;q.sentAt=Date.now();await dbPut('quotes',q);renderHist()}
 async function delQ(id){if(confirm('Delete this quote?')){await dbDel('quotes',id);renderHist();bk()}}
 async function openQ(id){await loadQuote(await dbGet('quotes',id));tab('quote')}
-function resetQuote(){
- curId=null;curNo=null;['client','phone','email','addr','cvat'].forEach(i=>$(i).value='');$('photo').value='';$('dxfIn').value='';
- corners=null;gray=base=metal=null;loops=null;cutLen=0;photoURL='';$('pickWrap').hidden=true;$('anal').hidden=true;
- srcMode='photo';dxfRaw=null;dxfPaths=null;dxfName='';$('dxfWrap').hidden=true;$('dxfCtl').hidden=false;
- $('cnote').hidden=true;$('gap').value=S.gap;$('edge').value=S.edge;
- priceManual=false;$('price').value='';extras=[];renderExtras();
- $('desc').value='';$('lead').value=S.lead;$('dep').value=S.dep;$('rnd').value=S.round;$('status').value='Draft';
- $('qno').textContent='New quote';$('basis').value='gross';$('thr').value=128;$('shade').checked=false;calc();
+
+/* ================= item switching ================= */
+function leaveItem(){syncOut();snapPrev()}
+async function loadItem(){
+ loading=true;const my=++loadSeq;
+ const s=Object.assign({},items[cur]);
+ srcMode='photo';dxfRaw=null;dxfPaths=null;dxfName='';
+ corners=null;gray=base=metal=null;loops=null;cutLen=0;photoURL='';openPct=0;fdims={w:0,h:0};drag=-1;
+ $('photo').value='';$('dxfIn').value='';
+ $('pickWrap').hidden=true;$('anal').hidden=true;$('dxfWrap').hidden=true;$('dxfCtl').hidden=false;
+ $('traceOut').textContent='';$('openOut').innerHTML='';
+ $('iname').value=s.name||'';
+ $('w').value=s.w;$('h').value=s.h;$('t').value=s.t;$('q').value=s.q;
+ selByName($('mat'),S.materials,s.mat);selByName($('fin'),S.finishes,s.fin);selByName($('cpx'),S.complexity,s.cpx);selByName($('sheet'),S.sheets,s.sheet);
+ $('basis').value=s.basis;$('open').value=s.open;$('gap').value=s.gap;$('edge').value=s.edge;$('rnd').value=s.rnd;
+ priceManual=!!s.pm;$('price').value=s.pm?s.pv:'';
+ $('thr').value=128;$('shade').checked=!!s.shade;$('metalDark').value=s.md||'1';$('minA').value=s.minA||'4';
+ $('incPrev').checked=s.incPrev!==false;$('incPrev2').checked=s.incPrev2!==false;
+ try{
+  if(s.photo){
+   const im=await loadImg(s.photo);
+   if(my!==loadSeq)return;
+   setPhoto(im,s.photo);
+   if(s.corners){corners=s.corners.map(c=>[c[0]*srcC.width,c[1]*srcC.height]);redrawPick();
+    if(s.thr!=null){doFlatten(true,true);$('thr').value=s.thr;updateMask()}}
+  }
+  if(s.src==='dxf'&&s.loops){
+   srcMode='dxf';loops=s.loops;cutLen=s.cutLen||0;fdims=s.fdims||fdims;openPct=s.openPct||0;dxfName=s.dxfName||'';
+   $('dxfCtl').hidden=true;$('dxfWrap').hidden=false;
+   $('dxfInfo').innerHTML=dxfSummary(loops.filter(l=>!l.open).length,loops.filter(l=>l.open).length)+`<br>Open area: <b>${openPct.toFixed(1)}%</b><br>Saved item – import the DXF again to change layers or units.`;
+   drawDxfPrev();
+  }else if(s.loops){loops=s.loops;cutLen=s.cutLen||0;fdims=s.fdims||fdims;$('traceOut').textContent=`${loops.length} cut paths · ≈${(cutLen/1000).toFixed(2)} m of cut per panel`}
+ }catch(e){}
+ loading=false;
+ calc();
 }
-async function loadQuote(q){
- resetQuote();curId=q.id;curNo=q.number;
- $('client').value=q.client.name;$('phone').value=q.client.phone||'';$('email').value=q.client.email||'';
- $('addr').value=q.client.addr||'';$('cvat').value=q.client.cvat||'';
- const i=q.inputs;$('w').value=i.w;$('h').value=i.h;$('t').value=i.t;$('q').value=i.q;$('basis').value=i.basis;$('open').value=i.open;$('mg').value=i.mg;$('vat').value=i.vat;
- $('gap').value=i.gap!=null?i.gap:S.gap;
- $('edge').value=i.edge!=null?i.edge:S.edge;
- if(i.rnd!=null)$('rnd').value=i.rnd;
- if(i.dep!=null)$('dep').value=i.dep;
+function scrollEd(){const e=$('edTop');if(e)e.scrollIntoView({behavior:'smooth'})}
+async function selItem(i){if(loading||i===cur||i<0||i>=items.length)return;leaveItem();cur=i;await loadItem();scrollEd()}
+async function addItem(){if(loading)return;leaveItem();const p=items[cur];
+ items.push(newItem({w:'',h:'',mat:p.mat,t:p.t,fin:p.fin,cpx:p.cpx,basis:p.basis,sheet:p.sheet,gap:p.gap,edge:p.edge,rnd:p.rnd}));
+ cur=items.length-1;await loadItem();scrollEd()}
+async function dupItem(){if(loading)return;leaveItem();const p=items[cur];
+ const c=Object.assign({},p,{name:p.name&&p.name.trim()?p.name.trim()+' (copy)':'',corners:p.corners?p.corners.map(a=>a.slice()):null,calc:null});
+ items.splice(cur+1,0,c);cur=cur+1;await loadItem();scrollEd()}
+async function delItem(){if(loading)return;
+ if(items.length<2){alert('A quote needs at least one item. To start over, tap + New.');return}
+ if(!confirm('Remove item '+(cur+1)+' ('+lbl(items[cur],cur)+') from this quote?'))return;
+ items.splice(cur,1);cur=Math.min(cur,items.length-1);await loadItem()}
+
+/* ================= new / open quote ================= */
+function resetQuote(){
+ const p=items[cur]||newItem();
+ curId=null;curNo=null;
+ ['client','phone','email','addr','cvat'].forEach(i=>$(i).value='');
+ $('cnote').hidden=true;
+ extras=[];renderExtras();
+ $('desc').value='';$('lead').value=S.lead;$('dep').value=S.dep;$('status').value='Draft';
+ $('qno').textContent='New quote';
+ items=[newItem({w:'',h:'',mat:p.mat,t:p.t,fin:p.fin,cpx:p.cpx,sheet:p.sheet})];cur=0;
+ return loadItem();
+}
+/* older (v4/v5) quotes become a quote with one item */
+function upgradeQuote(q){
+ if(q.items&&q.items.length)return q;
+ const i=q.inputs||{};
+ const it=newItem({name:'',w:String(i.w!=null?i.w:''),h:String(i.h!=null?i.h:''),t:String(i.t!=null?i.t:'3'),q:String(i.q!=null?i.q:'1'),
+  mat:q.matN,fin:q.finN,cpx:q.cpxN,basis:i.basis||'gross',open:String(i.open!=null?i.open:30),
+  sheet:i.sheet||S.sheets[0].n,gap:i.gap!=null?String(i.gap):String(S.gap),edge:i.edge!=null?String(i.edge):String(S.edge),rnd:i.rnd!=null?String(i.rnd):String(S.round),
+  pm:!!q.priceManual,priceVal:q.priceVal!=null?q.priceVal:null,
+  src:q.src||'photo',photo:q.photo||'',corners:q.corners||null,thr:q.thr!=null?q.thr:null,md:q.md!=null?q.md:'1',shade:!!q.shade,minA:q.minA!=null?q.minA:'4',
+  incPrev:q.incPrev!==false,incPrev2:q.incPrev!==false,
+  loops:q.loops||null,cutLen:q.cutLen||0,fdims:q.fdims||{w:0,h:0},openPct:q.openPct||0,dxfName:q.dxfName||'',calc:q.calc||null});
+ return Object.assign({},q,{items:[it],mg:i.mg!=null?i.mg:20,vat:i.vat!=null?i.vat:'1',dep:i.dep!=null?i.dep:S.dep});
+}
+async function loadQuote(q0){
+ while(loading)await sleep(50);
+ const q=upgradeQuote(q0);
+ curId=q.id;curNo=q.number;
+ $('client').value=q.client.name||'';$('phone').value=q.client.phone||'';$('email').value=q.client.email||'';
+ $('addr').value=q.client.addr||'';$('cvat').value=q.client.cvat||'';$('cnote').hidden=true;
+ $('mg').value=q.mg!=null?q.mg:20;$('vat').value=q.vat!=null?q.vat:'1';$('dep').value=q.dep!=null?q.dep:S.dep;
  $('desc').value=q.desc||'';$('lead').value=q.lead!=null?q.lead:S.lead;$('status').value=q.status||'Draft';
  extras=(q.extras||[]).map(e=>({d:e.d,a:e.a,neg:!!e.neg}));renderExtras();
- selByName($('mat'),S.materials,q.matN);selByName($('fin'),S.finishes,q.finN);selByName($('cpx'),S.complexity,q.cpxN);
- if(i.sheet)selByName($('sheet'),S.sheets,i.sheet);
- $('qno').textContent='Quote '+q.number;
- if(q.photo){setPhoto(await loadImg(q.photo),q.photo);
-  if(q.corners){corners=q.corners.map(c=>[c[0]*srcC.width,c[1]*srcC.height]);redrawPick();
-   if(q.thr!=null){$('shade').checked=q.shade;$('metalDark').value=q.md;$('minA').value=q.minA;$('incPrev').checked=q.incPrev;
-    doFlatten(true);$('thr').value=q.thr;updateMask()}}}
- if(q.src==='dxf'&&q.loops){
-  srcMode='dxf';loops=q.loops;cutLen=q.cutLen;fdims=q.fdims;openPct=q.openPct||0;dxfName=q.dxfName||'';
-  $('incPrev2').checked=q.incPrev;$('dxfCtl').hidden=true;$('dxfWrap').hidden=false;
-  $('dxfInfo').innerHTML=dxfSummary(loops.length,0)+`<br>Open area: <b>${openPct.toFixed(1)}%</b><br>Saved quote – import the DXF again to change layers or units.`;
-  drawDxfPrev();
- }else if(q.loops){loops=q.loops;cutLen=q.cutLen;fdims=q.fdims||fdims;$('traceOut').textContent=`${loops.length} cut paths · ≈${(cutLen/1000).toFixed(2)} m of cut per panel`}
- calc();
+ const mg=N($('mg').value);
+ items=q.items.map(it=>newItem(it));cur=0;
  /* keep the price that was quoted, even if rates changed since */
- if(q.priceVal!=null&&(q.priceManual||Math.abs(D.calcPrice-q.priceVal)>0.005)){priceManual=true;$('price').value=q.priceVal.toFixed(2);calc()}
+ items.forEach(it=>{if(it.priceVal!=null){const r=priceItem(it,mg);if(it.pm||Math.abs(r.calcPrice-it.priceVal)>0.005){it.pm=true;it.pv=Number(it.priceVal).toFixed(2)}}});
+ await loadItem();
+ $('qno').textContent='Quote '+q.number;
 }
-$('newBtn').onclick=()=>{resetQuote();tab('quote')};
+$('newBtn').onclick=async()=>{if(loading)return;await resetQuote();tab('quote')};
 
 /* ================= start ================= */
 (function(){const c=document.createElement('canvas');c.width=c.height=180;const x=c.getContext('2d');
@@ -1057,5 +1296,6 @@ $('newBtn').onclick=()=>{resetQuote();tab('quote')};
  $('icon').href=c.toDataURL()})();
 if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});
 (async()=>{try{await openDB();clients=await dbAll('clients');dl()}catch(e){alert('Saving quotes is not available in this browser mode.')}
- fillAll();$('gap').value=S.gap;$('edge').value=S.edge;$('rnd').value=S.round;$('dep').value=S.dep;$('lead').value=S.lead;calc();bk()})();
+ fillAll();$('dep').value=S.dep;$('lead').value=S.lead;renderExtras();
+ items=[newItem()];cur=0;await loadItem();bk()})();
 </script></body></html>
